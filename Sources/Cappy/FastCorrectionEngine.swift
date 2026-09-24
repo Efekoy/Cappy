@@ -40,6 +40,7 @@ struct FastCorrectionEngine {
     static let maximumContextUTF16Length = 96
 
     private static let commonReplacements: [String: String] = [
+        "aggree": "agree",
         "alot": "a lot",
         "definately": "definitely",
         "helllo": "hello",
@@ -228,19 +229,28 @@ struct FastCorrectionEngine {
               word.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return nil }
 
         let suggestions = candidateProvider(word).prefix(5).map { $0.lowercased() }
-        guard let first = suggestions.first,
-              Self.isSafeSingleEdit(from: word, to: first) else { return nil }
+        guard word.count >= 7,
+              let first = suggestions.first,
+              Self.singleEditKind(from: word, to: first) == .duplicate else { return nil }
         return first
     }
 
-    private static func isSafeSingleEdit(from observed: String, to candidate: String) -> Bool {
+    private enum SingleEditKind {
+        case duplicate
+        case extra
+        case missing
+        case neighbour
+        case transposition
+    }
+
+    private static func singleEditKind(from observed: String, to candidate: String) -> SingleEditKind? {
         guard candidate != observed,
-              candidate.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return false }
+              candidate.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return nil }
 
         let source = Array(observed)
         let target = Array(candidate)
         let lengthDifference = target.count - source.count
-        guard abs(lengthDifference) <= 1 else { return false }
+        guard abs(lengthDifference) <= 1 else { return nil }
 
         if lengthDifference == 0 {
             let mismatches = source.indices.filter { source[$0] != target[$0] }
@@ -248,12 +258,13 @@ struct FastCorrectionEngine {
                mismatches[1] == mismatches[0] + 1,
                source[mismatches[0]] == target[mismatches[1]],
                source[mismatches[1]] == target[mismatches[0]] {
-                return true
+                return .transposition
             }
             if mismatches.count == 1 {
                 return keyboardNeighbours[source[mismatches[0]], default: []].contains(target[mismatches[0]])
+                    ? .neighbour : nil
             }
-            return false
+            return nil
         }
 
         // A single missing or extra letter is a high-confidence edit only when
@@ -271,10 +282,17 @@ struct FastCorrectionEngine {
                 skipped = true
                 longIndex += 1
             } else {
-                return false
+                return nil
             }
         }
-        return true
+        if lengthDifference > 0 { return .missing }
+
+        let extraIndex = zip(source.indices, target.indices).first {
+            source[$0.0] != target[$0.1]
+        }?.0 ?? (source.count - 1)
+        let isDuplicate = (extraIndex > 0 && source[extraIndex] == source[extraIndex - 1])
+            || (extraIndex + 1 < source.count && source[extraIndex] == source[extraIndex + 1])
+        return isDuplicate ? .duplicate : .extra
     }
 
     private static let keyboardNeighbours: [Character: Set<Character>] = {

@@ -27,18 +27,18 @@ final class FastCorrectionEngineTests: XCTestCase {
 
     func testCorrectsGenericDuplicateLetterTypo() {
         var engine = FastCorrectionEngine(candidateProvider: { word in
-            word == "aggree" ? ["agree", "aggro"] : []
+            word == "commmittee" ? ["committee"] : []
         })
         engine.synchronize(leftContext: "I ")
-        _ = engine.consume("aggree")
-        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
+        _ = engine.consume("commmittee")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "committee")
     }
 
     func testNativeDictionaryRanksAgreeForReportedTypo() {
         XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "aggree").first, "agree")
     }
 
-    func testCorrectsGenericTranspositionAndMissingLetter() {
+    func testKeepsAmbiguousGeneratedTranspositionAndMissingLetter() {
         var engine = FastCorrectionEngine(candidateProvider: { word in
             switch word {
             case "watre": return ["water", "ware"]
@@ -48,17 +48,17 @@ final class FastCorrectionEngineTests: XCTestCase {
         })
         engine.synchronize(leftContext: "Some ")
         _ = engine.consume("watre")
-        XCTAssertEqual(engine.consume(" ")?.replacement, "water")
+        XCTAssertNil(engine.consume(" "))
 
         _ = engine.consume("agre")
-        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
+        XCTAssertNil(engine.consume(" "))
     }
 
-    func testCorrectsKeyboardNeighbourSubstitution() {
+    func testKeepsAmbiguousGeneratedKeyboardNeighbourSubstitution() {
         var engine = FastCorrectionEngine(candidateProvider: { $0 == "hellp" ? ["hello"] : [] })
         engine.synchronize(leftContext: "Say ")
         _ = engine.consume("hellp")
-        XCTAssertEqual(engine.consume(" ")?.replacement, "hello")
+        XCTAssertNil(engine.consume(" "))
     }
 
     func testRejectsDistantDictionarySuggestion() {
