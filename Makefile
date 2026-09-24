@@ -8,9 +8,7 @@ test:
 app:
 	./scripts/build-app.sh release
 install: app
-	mkdir -p "$(HOME)/Library/Input Methods"
-	ditto "dist/Cappy.app" "$(HOME)/Library/Input Methods/Cappy.app"
-	@echo "Installed $(HOME)/Library/Input Methods/Cappy.app"
+	./scripts/install-app.sh
 uninstall:
 	@if [ -d "$(HOME)/Library/Input Methods/Cappy.app" ]; then mv "$(HOME)/Library/Input Methods/Cappy.app" "$(HOME)/.Trash/Cappy-$$(date +%s).app"; fi
 clean:

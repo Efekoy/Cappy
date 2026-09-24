@@ -4,7 +4,7 @@ import OSLog
 final class PerformanceRecorder {
     static let shared = PerformanceRecorder()
 
-    private let logger = Logger(subsystem: "com.efekoy.Cappy", category: "performance")
+    private let logger = Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "performance")
     private var samples: [UInt64] = []
     private let maximumSamples = 256
 

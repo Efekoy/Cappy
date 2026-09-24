@@ -33,7 +33,9 @@ Install for the current macOS user:
 make install
 ```
 
-Then log out and back in so macOS refreshes its input-method registry. Open **System Settings → Keyboard → Text Input → Edit**, press **+**, find **Cappy** under English, and add it. Select Cappy from the Input menu in the menu bar. If the Input menu is hidden, enable **Show Input menu in menu bar** in the same Text Input sheet.
+On the first installation, open **System Settings → Keyboard → Text Input → Edit**, press **+**, find **Cappy** under English, and add it. If the new source is not visible yet, log out and back in once so macOS rebuilds its input-method registry. Select Cappy from the Input menu in the menu bar. If the Input menu is hidden, enable **Show Input menu in menu bar** in the same Text Input sheet.
+
+Later development updates do not require a logout or restart. `make install` replaces the installed bundle, stops the old Cappy process, re-registers the input source, and refreshes the per-user text-input services. Cappy launches the updated executable on the next key event while retaining the same input-source selection.
 
 Open TextEdit and type:
 
@@ -63,6 +65,7 @@ The uninstall target moves the installed app to the Trash.
 - `Resources/Info.plist`: input-source registration metadata
 - `Tests/CappyTests`: engine and UTF-16 range tests
 - `scripts/build-app.sh`: reproducible local package builder
+- `scripts/install-app.sh`: in-place installer and input-service refresher
 
 ## Phase 1 limits
 

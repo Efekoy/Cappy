@@ -53,6 +53,12 @@
 				A10000000000000000000014 /* Info.plist */,
 				A10000000000000000000015 /* Cappy.svg */,
 				A10000000000000000000016 /* Cappy.tiff */,
+				A10000000000000000000033 /* Cappy.png */,
+				A10000000000000000000038 /* CappyInputSource.png */,
+				A10000000000000000000039 /* CappyInputSource@2x.png */,
+				A10000000000000000000042 /* CappySettingsIcon.png */,
+				A10000000000000000000043 /* CappySettingsIcon@2x.png */,
+				A10000000000000000000036 /* InfoPlist.strings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -72,6 +78,12 @@
 		A10000000000000000000015 /* Cappy.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Cappy.svg; sourceTree = "<group>"; };
 		A10000000000000000000016 /* Cappy.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = Cappy.tiff; sourceTree = "<group>"; };
 		A10000000000000000000017 /* InputMethodKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = InputMethodKit.framework; path = System/Library/Frameworks/InputMethodKit.framework; sourceTree = SDKROOT; };
+		A10000000000000000000033 /* Cappy.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = Cappy.png; sourceTree = "<group>"; };
+		A10000000000000000000037 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		A10000000000000000000038 /* CappyInputSource.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CappyInputSource.png; sourceTree = "<group>"; };
+		A10000000000000000000039 /* CappyInputSource@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "CappyInputSource@2x.png"; sourceTree = "<group>"; };
+		A10000000000000000000042 /* CappySettingsIcon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = CappySettingsIcon.png; sourceTree = "<group>"; };
+		A10000000000000000000043 /* CappySettingsIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "CappySettingsIcon@2x.png"; sourceTree = "<group>"; };
 		A10000000000000000000018 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* main.swift */; };
 		A10000000000000000000019 /* CappyInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* CappyInputController.swift */; };
 		A10000000000000000000020 /* PhaseOneCorrectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* PhaseOneCorrectionEngine.swift */; };
@@ -79,6 +91,18 @@
 		A10000000000000000000022 /* Cappy.svg in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* Cappy.svg */; };
 		A10000000000000000000023 /* Cappy.tiff in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* Cappy.tiff */; };
 		A10000000000000000000024 /* InputMethodKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10000000000000000000017 /* InputMethodKit.framework */; };
+		A10000000000000000000034 /* Cappy.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000033 /* Cappy.png */; };
+		A10000000000000000000035 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000036 /* InfoPlist.strings */; };
+		A10000000000000000000040 /* CappyInputSource.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000038 /* CappyInputSource.png */; };
+		A10000000000000000000041 /* CappyInputSource@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000039 /* CappyInputSource@2x.png */; };
+		A10000000000000000000044 /* CappySettingsIcon.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000042 /* CappySettingsIcon.png */; };
+		A10000000000000000000045 /* CappySettingsIcon@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000043 /* CappySettingsIcon@2x.png */; };
+		A10000000000000000000036 /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (A10000000000000000000037 /* en */);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
 		A10000000000000000000005 /* Cappy */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = A10000000000000000000025;
@@ -92,7 +116,7 @@
 		};
 		A10000000000000000000026 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000018, A10000000000000000000019, A10000000000000000000020, A10000000000000000000021); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000027 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000024); runOnlyForDeploymentPostprocessing = 0; };
-		A10000000000000000000028 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000022, A10000000000000000000023); runOnlyForDeploymentPostprocessing = 0; };
+		A10000000000000000000028 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (A10000000000000000000022, A10000000000000000000023, A10000000000000000000034, A10000000000000000000035, A10000000000000000000040, A10000000000000000000041, A10000000000000000000044, A10000000000000000000045); runOnlyForDeploymentPostprocessing = 0; };
 		A10000000000000000000002 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000029, A10000000000000000000030); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A10000000000000000000025 = {isa = XCConfigurationList; buildConfigurations = (A10000000000000000000031, A10000000000000000000032); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
 		A10000000000000000000029 = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; MACOSX_DEPLOYMENT_TARGET = 13.0; SDKROOT = macosx; SUPPORTED_PLATFORMS = macosx; SWIFT_VERSION = 5.0; }; name = Debug; };
@@ -105,7 +129,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.efekoy.Cappy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.efekoy.inputmethod.Cappy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -120,7 +144,7 @@
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
-				PRODUCT_BUNDLE_IDENTIFIER = com.efekoy.Cappy;
+				PRODUCT_BUNDLE_IDENTIFIER = com.efekoy.inputmethod.Cappy;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";

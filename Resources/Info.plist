@@ -9,37 +9,78 @@
     <key>CFBundleExecutable</key>
     <string>Cappy</string>
     <key>CFBundleIdentifier</key>
-    <string>com.efekoy.Cappy</string>
+    <string>com.efekoy.inputmethod.Cappy</string>
+    <key>CFBundleIconFile</key>
+    <string>CappySettingsIcon.png</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
     <string>Cappy</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>Capy</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.2.0</string>
+    <string>0.2.1</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>12</string>
+    <key>ComponentInputModeDict</key>
+    <dict>
+        <key>tsInputModeListKey</key>
+        <dict>
+            <key>com.efekoy.inputmethod.Cappy.en</key>
+            <dict>
+                <key>TISInputSourceID</key>
+                <string>com.efekoy.inputmethod.Cappy.en</string>
+                <key>TISIntendedLanguage</key>
+                <string>en</string>
+                <key>tsInputModeCharacterRepertoireKey</key>
+                <array>
+                    <string>Latn</string>
+                </array>
+                <key>tsInputModeDefaultStateKey</key>
+                <true/>
+                <key>tsInputModeIsVisibleKey</key>
+                <true/>
+                <key>tsInputModeMenuIconFileKey</key>
+                <string>CappyInputSource.png</string>
+                <key>tsInputModeAlternateMenuIconFileKey</key>
+                <string>CappyInputSource.png</string>
+                <key>tsInputModePaletteIconFileKey</key>
+                <string>CappyInputSource.png</string>
+                <key>tsInputModePrimaryInScriptKey</key>
+                <true/>
+                <key>tsInputModeScriptKey</key>
+                <string>smUnicodeScript</string>
+            </dict>
+        </dict>
+        <key>tsVisibleInputModeOrderedArrayKey</key>
+        <array>
+            <string>com.efekoy.inputmethod.Cappy.en</string>
+        </array>
+    </dict>
     <key>InputMethodConnectionName</key>
-    <string>com.efekoy.Cappy.InputMethodConnection</string>
+    <string>com.efekoy.inputmethod.Cappy.Connection</string>
     <key>InputMethodServerControllerClass</key>
     <string>CappyInputController</string>
     <key>InputMethodServerDelegateClass</key>
     <string>CappyInputController</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
+    <key>LSBackgroundOnly</key>
+    <true/>
     <key>LSUIElement</key>
     <true/>
     <key>NSPrincipalClass</key>
     <string>NSApplication</string>
     <key>NSSupportsSuddenTermination</key>
     <true/>
-    <key>TISInputSourceID</key>
-    <string>com.efekoy.Cappy</string>
     <key>TISIntendedLanguage</key>
     <string>en</string>
+    <key>TISInputSourceID</key>
+    <string>com.efekoy.inputmethod.Cappy</string>
     <key>tsInputMethodIconFileKey</key>
-    <string>Cappy.tiff</string>
+    <string>CappySettingsIcon.png</string>
     <key>tsInputMethodCharacterRepertoireKey</key>
     <array>
         <string>Latn</string>
