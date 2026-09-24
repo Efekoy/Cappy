@@ -1,4 +1,4 @@
-.PHONY: build test app install uninstall clean
+.PHONY: build test app benchmark install uninstall clean
 DEVELOPER_DIR := /Applications/Xcode.app/Contents/Developer
 export DEVELOPER_DIR
 build:
@@ -7,6 +7,8 @@ test:
 	swift test
 app:
 	./scripts/build-app.sh release
+benchmark: app
+	dist/Cappy.app/Contents/MacOS/Cappy --benchmark
 install: app
 	./scripts/install-app.sh
 uninstall:

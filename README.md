@@ -1,8 +1,8 @@
 # Cappy
 
-Cappy is a native macOS contextual autocorrect project. It behaves as a direct English input source and applies conservative, deterministic corrections when the following whitespace commits a word.
+Cappy is a fast, private macOS contextual autocorrect. It combines conservative rules with a tiny local Core ML reranker and applies corrections when the following whitespace commits a word.
 
-This phase contains no neural model, Core ML, Accessibility fallback, event tap, network access, polling, analytics, or persisted typing history.
+The model runs entirely on-device. Cappy uses no network access, Accessibility fallback, event tap, polling, analytics, or persisted typing history.
 
 ## Current behavior
 
@@ -14,6 +14,7 @@ This phase contains no neural model, Core ML, Accessibility fallback, event tap,
 - High-confidence missing apostrophes such as `dont` → `don't`, `cant` → `can't`, and `youre` → `you're` are corrected without a model.
 - A lowercase first word is capitalised at the start of a document or after `.`, `!`, `?`, or a newline.
 - Bounded contextual rules handle high-confidence valid-word errors including `Your going` → `You're going`, `there car` → `their car`, and `should of` → `should have`.
+- A 394k-parameter Core ML reranker examines at most five nearby tokens and chooses only among `KEEP` and six validated edit types. The engine applies a model edit only above a 95% confidence threshold and verifies that its source text matches the requested edit.
 - Immediate undo is learned locally. After the same correction pair is rejected twice, Cappy suppresses it; only bounded pair counters are persisted.
 - Corrections are disabled in known terminal and code-editor apps, while token checks suppress URLs, email addresses, paths, identifiers, numbers, and mixed-case names.
 - Contextual substitutions wait for enough nearby words to distinguish cases such as `They're going to` from the valid possessive phrase `their going rate`.
@@ -29,6 +30,7 @@ Xcode can open [Cappy.xcodeproj](Cappy.xcodeproj). The command-line build uses t
 ```sh
 make test
 make app
+make benchmark
 ```
 
 The packaged input method is created at `dist/Cappy.app`.
@@ -72,6 +74,10 @@ The uninstall target moves the installed app to the Trash.
 - `Sources/Cappy/CappyInputController.swift`: immediate passthrough, document validation, minimal replacement, and undo ledger
 - `Sources/Cappy/FastCorrectionEngine.swift`: platform-independent bounded word state, sentence-boundary tracking, and high-confidence correction tables
 - `Sources/Cappy/PerformanceRecorder.swift`: text-free timing aggregation
+- `Sources/Cappy/ContextReranker.swift`: bounded feature extraction and local Core ML inference
+- `ML/train_reranker.py`: reproducible synthetic-data trainer and Core ML exporter
+- `Docs/EVALUATION.md`: quality methodology, limitations, and measured results
+- `Docs/BENCHMARK.json`: raw benchmark output from the development Mac
 - `Resources/Info.plist`: input-source registration metadata
 - `Tests/CappyTests`: engine and UTF-16 range tests
 - `scripts/build-app.sh`: reproducible local package builder
@@ -81,4 +87,4 @@ The uninstall target moves the installed app to the Trash.
 
 Correction currently triggers on whitespace, so the active word remains unchanged until Space, Return, or another whitespace character is typed. This avoids modifying domain and path segments before the complete safety classifier exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
 
-The current contextual scorer intentionally covers only high-confidence confusion patterns. The checked-in quality corpus verifies positive corrections, valid phrases that must remain unchanged, protected tokens, and sub-millisecond deterministic p95 latency. A Core ML candidate reranker remains gated on a larger representative corpus; the project does not put an untrained or unmeasured model in the typing path.
+The contextual model currently covers six confusion edits rather than unrestricted rewriting. Its 99.2% held-out accuracy and 100% high-confidence precision are from a synthetic template split, so they do not establish performance on normal writing or superiority to other autocorrect systems. The external Birkbeck result measures spelling candidates without sentence context. See [Docs/EVALUATION.md](Docs/EVALUATION.md) before interpreting the numbers.

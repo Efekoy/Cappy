@@ -2,6 +2,11 @@ import AppKit
 import Carbon.HIToolbox
 import InputMethodKit
 
+if CommandLine.arguments.contains("--benchmark") {
+    BenchmarkRunner.run()
+    exit(EXIT_SUCCESS)
+}
+
 if CommandLine.arguments.contains("--register-input-source") {
     let status = TISRegisterInputSource(Bundle.main.bundleURL as CFURL)
     print("Cappy input-source registration status: \(status)")

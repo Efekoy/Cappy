@@ -1,0 +1,21 @@
+{
+  "classes": [
+    "KEEP",
+    "YOUR_TO_YOURE",
+    "THEIR_TO_THEYRE",
+    "THERE_TO_THEYRE",
+    "THERE_TO_THEIR",
+    "OF_TO_HAVE",
+    "ITS_TO_ITS_APOSTROPHE"
+  ],
+  "feature_count": 4096,
+  "hidden_count": 96,
+  "parameter_count": 393991,
+  "training_examples": 3080,
+  "test_examples": 630,
+  "test_accuracy": 0.9920634920634921,
+  "high_confidence_threshold": 0.95,
+  "high_confidence_precision": 1.0,
+  "high_confidence_coverage": 0.7666666666666667,
+  "training_seconds": 1.017143458
+}

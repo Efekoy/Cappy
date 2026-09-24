@@ -1,0 +1,136 @@
+{
+  "automatic_threshold" : 0.94999999999999996,
+  "coreml" : [
+    {
+      "available" : true,
+      "cold_load_ms" : 28.476291,
+      "compute_units" : "cpu_only",
+      "iterations" : 1000,
+      "p50_ms" : 0.49833300000000003,
+      "p95_ms" : 0.53579200000000005,
+      "p99_ms" : 0.56862500000000005,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 64.614333000000002,
+      "compute_units" : "cpu_and_neural_engine",
+      "iterations" : 1000,
+      "p50_ms" : 0.484875,
+      "p95_ms" : 0.50541599999999998,
+      "p99_ms" : 0.51924999999999999,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 4.224666,
+      "compute_units" : "all",
+      "iterations" : 1000,
+      "p50_ms" : 0.485292,
+      "p95_ms" : 0.50191699999999995,
+      "p99_ms" : 0.51070899999999997,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    }
+  ],
+  "deterministic" : {
+    "iterations" : 10000,
+    "p50_ms" : 0.0035829999999999998,
+    "p95_ms" : 0.0060419999999999996,
+    "p99_ms" : 0.0070000000000000001
+  },
+  "hardware" : "Mac14,2",
+  "os" : "Version 26.6.2 (Build 25G83)"
+}

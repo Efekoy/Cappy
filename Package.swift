@@ -9,7 +9,10 @@ let package = Package(
         .executableTarget(
             name: "Cappy",
             path: "Sources/Cappy",
-            linkerSettings: [.linkedFramework("InputMethodKit")]
+            linkerSettings: [
+                .linkedFramework("InputMethodKit"),
+                .linkedFramework("CoreML")
+            ]
         ),
         .testTarget(name: "CappyTests", dependencies: ["Cappy"], path: "Tests/CappyTests")
     ],

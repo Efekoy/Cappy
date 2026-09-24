@@ -15,7 +15,8 @@ private struct CorrectionLedger {
 final class CappyInputController: IMKInputController {
     private var engine = FastCorrectionEngine(
         candidateProvider: NativeSpellingCandidates.suggestions,
-        suppressionProvider: PersonalizationStore.shared.shouldSuppress
+        suppressionProvider: PersonalizationStore.shared.shouldSuppress,
+        rerankProvider: ContextReranker.shared.decision
     )
     private var recentCorrection: CorrectionLedger?
     private var expectedCaretLocation: Int?

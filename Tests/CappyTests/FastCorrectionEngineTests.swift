@@ -179,6 +179,30 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertNil(engine.consume(" "))
     }
 
+    func testNeuralRerankerAppliesOnlyValidatedHighConfidenceAction() {
+        var engine = FastCorrectionEngine(rerankProvider: { _ in
+            ContextualRerankDecision(action: .yourToYoure, confidence: 0.999)
+        })
+        engine.synchronize(leftContext: "")
+        XCTAssertNil(engine.consume("Your "))
+        XCTAssertNil(engine.consume("returning "))
+        XCTAssertEqual(engine.consume("tomorrow ")?.replacement, "You're returning tomorrow")
+
+        var mismatched = FastCorrectionEngine(rerankProvider: { _ in
+            ContextualRerankDecision(action: .thereToTheir, confidence: 0.999)
+        })
+        mismatched.synchronize(leftContext: "")
+        XCTAssertNil(mismatched.consume("Your returning tomorrow "))
+    }
+
+    func testNeuralRerankerKeepsLowConfidenceText() {
+        var engine = FastCorrectionEngine(rerankProvider: { _ in
+            ContextualRerankDecision(action: .yourToYoure, confidence: 0.94)
+        })
+        engine.synchronize(leftContext: "")
+        XCTAssertNil(engine.consume("Your returning tomorrow "))
+    }
+
     func testDoesNotCorrectURLsPathsOrInsideLongTokens() {
         var engine = FastCorrectionEngine()
         _ = engine.consume("definately.com ")

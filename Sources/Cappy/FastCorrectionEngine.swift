@@ -35,6 +35,7 @@ enum CorrectionRangePlanner {
 struct FastCorrectionEngine {
     typealias CandidateProvider = (String) -> [String]
     typealias SuppressionProvider = (_ original: String, _ replacement: String) -> Bool
+    typealias RerankProvider = (_ tokens: [String]) -> ContextualRerankDecision?
 
     static let maximumWordLength = 32
     static let maximumContextUTF16Length = 96
@@ -84,14 +85,17 @@ struct FastCorrectionEngine {
     private var nextWordBeginsSentence = true
     private let candidateProvider: CandidateProvider
     private let suppressionProvider: SuppressionProvider
+    private let rerankProvider: RerankProvider?
     private var recentWords: [String] = []
 
     init(
         candidateProvider: @escaping CandidateProvider = { _ in [] },
-        suppressionProvider: @escaping SuppressionProvider = { _, _ in false }
+        suppressionProvider: @escaping SuppressionProvider = { _, _ in false },
+        rerankProvider: RerankProvider? = nil
     ) {
         self.candidateProvider = candidateProvider
         self.suppressionProvider = suppressionProvider
+        self.rerankProvider = rerankProvider
     }
 
     mutating func invalidate() {
@@ -186,9 +190,55 @@ struct FastCorrectionEngine {
             return (word, replacement)
         }
 
-        guard let contextual = ContextualScorer.replacement(history: recentWords, current: word),
-              !suppressionProvider(contextual.original, contextual.replacement) else { return nil }
-        return contextual
+        if let contextual = ContextualScorer.replacement(history: recentWords, current: word),
+           !suppressionProvider(contextual.original, contextual.replacement) {
+            return contextual
+        }
+
+        guard let neural = neuralReplacement(for: word),
+              !suppressionProvider(neural.original, neural.replacement) else { return nil }
+        return neural
+    }
+
+    private func neuralReplacement(for word: String) -> (original: String, replacement: String)? {
+        guard let rerankProvider,
+              let decision = rerankProvider(Array(recentWords.suffix(4)) + [word]),
+              decision.confidence >= ContextReranker.automaticThreshold,
+              decision.action != .keep else { return nil }
+
+        func preserveCase(_ source: String, _ replacement: String) -> String {
+            guard source.first?.isUppercase == true, let first = replacement.first else { return replacement }
+            return first.uppercased() + replacement.dropFirst()
+        }
+
+        if decision.action == .thereToTheir,
+           let previous = recentWords.last,
+           previous.lowercased() == "there" {
+            return (previous + " " + word, preserveCase(previous, "their") + " " + word)
+        }
+        if decision.action == .ofToHave,
+           let previous = recentWords.last,
+           ["should", "could", "would"].contains(previous.lowercased()),
+           word.lowercased() == "of" {
+            return (previous + " " + word, previous + " have")
+        }
+
+        guard recentWords.count >= 2 else { return nil }
+        let subject = recentWords[recentWords.count - 2]
+        let predicate = recentWords[recentWords.count - 1]
+        let expectedSubject: String
+        let contraction: String
+        switch decision.action {
+        case .yourToYoure: expectedSubject = "your"; contraction = "you're"
+        case .theirToTheyre: expectedSubject = "their"; contraction = "they're"
+        case .thereToTheyre: expectedSubject = "there"; contraction = "they're"
+        case .itsToItsApostrophe: expectedSubject = "its"; contraction = "it's"
+        default: return nil
+        }
+        guard subject.lowercased() == expectedSubject else { return nil }
+        let original = [subject, predicate, word].joined(separator: " ")
+        let replacement = [preserveCase(subject, contraction), predicate, word].joined(separator: " ")
+        return (original, replacement)
     }
 
     private mutating func remember(_ correctedText: String, replacingPreviousWordCount: Int) {
