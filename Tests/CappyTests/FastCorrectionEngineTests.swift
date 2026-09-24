@@ -34,8 +34,50 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(engine.consume(" ")?.replacement, "committee")
     }
 
+    func testCorrectsTopRankedMissingSpaceIncludingContraction() {
+        var contraction = FastCorrectionEngine(candidateProvider: { word in
+            word == "can'tget" ? ["can't get", "can't-get"] : []
+        })
+        contraction.synchronize(leftContext: "")
+        _ = contraction.consume("Can'tget")
+        XCTAssertEqual(contraction.consume(" "), FastCorrection(
+            original: "Can'tget",
+            replacement: "Can't get",
+            suffix: " "
+        ))
+
+        var ordinary = FastCorrectionEngine(candidateProvider: { word in
+            word == "whatabout" ? ["what about", "what-about"] : []
+        })
+        ordinary.synchronize(leftContext: "Tell me ")
+        _ = ordinary.consume("whatabout")
+        XCTAssertEqual(ordinary.consume(" ")?.replacement, "what about")
+    }
+
+    func testKeepsUncertainOrInexactWordSplits() {
+        var lowerRanked = FastCorrectionEngine(candidateProvider: { word in
+            word == "inthe" ? ["into", "in the"] : []
+        })
+        lowerRanked.synchronize(leftContext: "Meet me ")
+        _ = lowerRanked.consume("inthe")
+        XCTAssertNil(lowerRanked.consume(" "))
+
+        var inexact = FastCorrectionEngine(candidateProvider: { _ in ["can get"] })
+        inexact.synchronize(leftContext: "I ")
+        _ = inexact.consume("can'tget")
+        XCTAssertNil(inexact.consume(" "))
+    }
+
     func testNativeDictionaryRanksAgreeForReportedTypo() {
         XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "aggree").first, "agree")
+    }
+
+    func testNativeDictionaryRanksRequestedMissingSpaceFirst() {
+        XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "can'tget").first, "can't get")
+        var engine = FastCorrectionEngine(candidateProvider: NativeSpellingCandidates.suggestions)
+        engine.synchronize(leftContext: "")
+        _ = engine.consume("Can'tget")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "Can't get")
     }
 
     func testKeepsAmbiguousGeneratedTranspositionAndMissingLetter() {

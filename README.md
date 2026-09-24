@@ -11,6 +11,7 @@ The model runs entirely on-device. Cappy uses no network access, Accessibility f
 - The correction engine retains only the active word plus sentence-boundary state. It reads at most 96 UTF-16 units of left context when a client session starts.
 - High-confidence spelling corrections include `definately` → `definitely`, `welocme` → `welcome`, `teh`/`tge`/`yhe` → `the`, and a small extensible common-typo table.
 - Unknown words are checked against macOS's offline British English dictionary. Corpus evaluation showed that isolated one-edit guesses are too ambiguous for automatic replacement, so generic auto-correction is limited to long duplicate-letter errors; common short errors use the curated high-confidence table.
+- A missing space is restored when the dictionary's first suggestion is exactly the original token split into two words, including `Can'tget` → `Can't get`. Approximate and lower-ranked splits are left unchanged.
 - High-confidence missing apostrophes such as `dont` → `don't`, `cant` → `can't`, and `youre` → `you're` are corrected without a model.
 - A lowercase first word is capitalised at the start of a document or after `.`, `!`, `?`, or a newline.
 - Bounded contextual rules handle high-confidence valid-word errors including `Your going` → `You're going`, `there car` → `their car`, and `should of` → `should have`.

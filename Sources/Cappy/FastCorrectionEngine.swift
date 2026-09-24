@@ -132,7 +132,8 @@ struct FastCorrectionEngine {
         var correction: FastCorrection?
 
         for character in text {
-            if Self.isWordLetter(character) {
+            if Self.isWordLetter(character)
+                || (Self.isApostrophe(character) && !currentWord.isEmpty && currentWord.last.map(Self.isWordLetter) == true) {
                 if currentWord.isEmpty {
                     wordBeganSentence = nextWordBeginsSentence
                 }
@@ -276,13 +277,34 @@ struct FastCorrectionEngine {
 
     private func conservativeDictionaryReplacement(for word: String) -> String? {
         guard word.count >= 4,
-              word.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return nil }
+              word.unicodeScalars.allSatisfy({
+                  CharacterSet.lowercaseLetters.contains($0) || $0 == "'" || $0 == "’"
+              }) else { return nil }
 
         let suggestions = candidateProvider(word).prefix(5).map { $0.lowercased() }
+        if let first = suggestions.first,
+           let split = Self.highConfidenceMissingSpace(from: word, candidate: first) {
+            return split
+        }
+
         guard word.count >= 7,
               let first = suggestions.first,
+              word.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains),
               Self.singleEditKind(from: word, to: first) == .duplicate else { return nil }
         return first
+    }
+
+    private static func highConfidenceMissingSpace(from observed: String, candidate: String) -> String? {
+        let parts = candidate.split(separator: " ", omittingEmptySubsequences: true)
+        guard parts.count == 2,
+              parts.allSatisfy({ $0.count >= 2 }),
+              candidate.allSatisfy({ isWordLetter($0) || isApostrophe($0) || $0 == " " }) else { return nil }
+
+        func normalized(_ value: String) -> String {
+            value.replacingOccurrences(of: "’", with: "'").replacingOccurrences(of: " ", with: "")
+        }
+        guard normalized(candidate) == normalized(observed) else { return nil }
+        return parts.joined(separator: " ")
     }
 
     private enum SingleEditKind {
@@ -381,6 +403,10 @@ struct FastCorrectionEngine {
 
     private static func isWordLetter(_ character: Character) -> Bool {
         character.unicodeScalars.allSatisfy(CharacterSet.letters.contains)
+    }
+
+    private static func isApostrophe(_ character: Character) -> Bool {
+        character == "'" || character == "’"
     }
 }
 

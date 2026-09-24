@@ -46,4 +46,6 @@ The checked-in quality suite covers:
 - local rejection learning; and
 - deterministic p95 latency below 1 ms on the development Mac.
 
+The missing-space stage accepts only the dictionary's first suggestion, requires exactly two parts of at least two characters, and requires that removing the proposed space reproduces the original token exactly. Tests reject lower-ranked and inexact split suggestions.
+
 The quality suite also injects model decisions into the engine to verify thresholding and source-pattern validation. A future release still needs evaluation on a representative, redistributable natural-writing corpus before comparative quality claims are justified.
