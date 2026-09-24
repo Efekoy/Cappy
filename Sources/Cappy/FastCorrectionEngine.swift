@@ -34,6 +34,7 @@ enum CorrectionRangePlanner {
 /// retains only the active word and enough state to recognise sentence starts.
 struct FastCorrectionEngine {
     typealias CandidateProvider = (String) -> [String]
+    typealias SuppressionProvider = (_ original: String, _ replacement: String) -> Bool
 
     static let maximumWordLength = 32
     static let maximumContextUTF16Length = 96
@@ -42,6 +43,7 @@ struct FastCorrectionEngine {
         "alot": "a lot",
         "definately": "definitely",
         "helllo": "hello",
+        "i": "I",
         "occured": "occurred",
         "recieve": "receive",
         "seperate": "separate",
@@ -80,9 +82,15 @@ struct FastCorrectionEngine {
     private var wordBeganSentence = false
     private var nextWordBeginsSentence = true
     private let candidateProvider: CandidateProvider
+    private let suppressionProvider: SuppressionProvider
+    private var recentWords: [String] = []
 
-    init(candidateProvider: @escaping CandidateProvider = { _ in [] }) {
+    init(
+        candidateProvider: @escaping CandidateProvider = { _ in [] },
+        suppressionProvider: @escaping SuppressionProvider = { _, _ in false }
+    ) {
         self.candidateProvider = candidateProvider
+        self.suppressionProvider = suppressionProvider
     }
 
     mutating func invalidate() {
@@ -91,6 +99,7 @@ struct FastCorrectionEngine {
         wordOverflowed = false
         wordBeganSentence = false
         nextWordBeginsSentence = true
+        recentWords.removeAll(keepingCapacity: true)
         generation &+= 1
     }
 
@@ -99,6 +108,7 @@ struct FastCorrectionEngine {
         tokenIsProtected = false
         wordOverflowed = false
         wordBeganSentence = false
+        recentWords.removeAll(keepingCapacity: true)
 
         guard let leftContext else {
             nextWordBeginsSentence = false
@@ -106,10 +116,14 @@ struct FastCorrectionEngine {
         }
 
         nextWordBeginsSentence = true
-        _ = consume(leftContext)
+        _ = consume(leftContext, allowsCorrection: false)
     }
 
     mutating func consume(_ text: String) -> FastCorrection? {
+        consume(text, allowsCorrection: true)
+    }
+
+    private mutating func consume(_ text: String, allowsCorrection: Bool) -> FastCorrection? {
         var correction: FastCorrection?
 
         for character in text {
@@ -129,19 +143,25 @@ struct FastCorrectionEngine {
             if character.isWhitespace,
                !tokenIsProtected,
                !wordOverflowed,
-               let replacement = replacement(for: completedWord, atSentenceStart: wordBeganSentence) {
+               allowsCorrection,
+               let replacement = bestReplacement(for: completedWord, atSentenceStart: wordBeganSentence) {
                 correction = FastCorrection(
-                    original: completedWord,
-                    replacement: replacement,
+                    original: replacement.original,
+                    replacement: replacement.replacement,
                     suffix: String(character)
                 )
             }
 
             if !completedWord.isEmpty {
                 nextWordBeginsSentence = false
+                remember(
+                    correction?.replacement ?? completedWord,
+                    replacingPreviousWord: correction?.original.contains(" ") == true
+                )
             }
             if Self.endsSentence(character) {
                 nextWordBeginsSentence = true
+                recentWords.removeAll(keepingCapacity: true)
             }
             currentWord.removeAll(keepingCapacity: true)
             wordBeganSentence = false
@@ -154,6 +174,30 @@ struct FastCorrectionEngine {
         }
 
         return correction
+    }
+
+    private func bestReplacement(for word: String, atSentenceStart: Bool) -> (original: String, replacement: String)? {
+        if let replacement = replacement(for: word, atSentenceStart: atSentenceStart),
+           !suppressionProvider(word, replacement) {
+            return (word, replacement)
+        }
+
+        guard let previous = recentWords.last,
+              let replacement = ContextualScorer.replacement(previous: previous, current: word) else { return nil }
+        let original = previous + " " + word
+        guard !suppressionProvider(original, replacement) else { return nil }
+        return (original, replacement)
+    }
+
+    private mutating func remember(_ correctedText: String, replacingPreviousWord: Bool) {
+        let words = correctedText.split(whereSeparator: { $0.isWhitespace }).map(String.init)
+        if replacingPreviousWord, !recentWords.isEmpty {
+            recentWords.removeLast()
+        }
+        recentWords.append(contentsOf: words)
+        if recentWords.count > 12 {
+            recentWords.removeFirst(recentWords.count - 12)
+        }
     }
 
     private func replacement(for word: String, atSentenceStart: Bool) -> String? {
@@ -268,5 +312,46 @@ struct FastCorrectionEngine {
 
     private static func isWordLetter(_ character: Character) -> Bool {
         character.unicodeScalars.allSatisfy(CharacterSet.letters.contains)
+    }
+}
+
+enum ContextualScorer {
+    private static let predicateWords: Set<String> = [
+        "amazing", "coming", "doing", "early", "going", "great", "late", "leaving",
+        "right", "ready", "sure", "welcome", "wrong"
+    ]
+    private static let possessionWords: Set<String> = [
+        "bag", "car", "choice", "computer", "friend", "home", "house", "idea", "name",
+        "phone", "problem", "room", "team", "work"
+    ]
+
+    static func replacement(previous: String, current: String) -> String? {
+        let lhs = previous.lowercased()
+        let rhs = current.lowercased()
+
+        if ["should", "could", "would"].contains(lhs), rhs == "of" {
+            return preserveInitialCase(of: previous, in: lhs + " have")
+        }
+        if lhs == "your", predicateWords.contains(rhs) {
+            return preserveInitialCase(of: previous, in: "you're " + current)
+        }
+        if lhs == "their", predicateWords.contains(rhs) {
+            return preserveInitialCase(of: previous, in: "they're " + current)
+        }
+        if lhs == "there", predicateWords.contains(rhs) {
+            return preserveInitialCase(of: previous, in: "they're " + current)
+        }
+        if lhs == "there", possessionWords.contains(rhs) {
+            return preserveInitialCase(of: previous, in: "their " + current)
+        }
+        if lhs == "its", predicateWords.contains(rhs) {
+            return preserveInitialCase(of: previous, in: "it's " + current)
+        }
+        return nil
+    }
+
+    private static func preserveInitialCase(of original: String, in replacement: String) -> String {
+        guard original.first?.isUppercase == true, let first = replacement.first else { return replacement }
+        return first.uppercased() + replacement.dropFirst()
     }
 }

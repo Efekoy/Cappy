@@ -107,6 +107,60 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(engine.consume(" ")?.replacement, "don't")
     }
 
+    func testContextCorrectsYourGoing() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "")
+        XCTAssertNil(engine.consume("Your "))
+        XCTAssertEqual(engine.consume("going "), FastCorrection(
+            original: "Your going",
+            replacement: "You're going",
+            suffix: " "
+        ))
+    }
+
+    func testContextCorrectsThereCarAndShouldOf() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "I left ")
+        XCTAssertNil(engine.consume("there "))
+        XCTAssertEqual(engine.consume("car ")?.replacement, "their car")
+
+        engine.synchronize(leftContext: "I should ")
+        XCTAssertEqual(engine.consume("of ")?.replacement, "should have")
+    }
+
+    func testContextCorrectsTheirThereAndItsBeforePredicate() {
+        for (source, expected) in [
+            ("Their going ", "They're going"),
+            ("There going ", "They're going"),
+            ("Its going ", "It's going")
+        ] {
+            var engine = FastCorrectionEngine()
+            engine.synchronize(leftContext: "")
+            let words = source.split(separator: " ").map(String.init)
+            XCTAssertNil(engine.consume(words[0] + " "))
+            XCTAssertEqual(engine.consume(words[1] + " ")?.replacement, expected)
+        }
+    }
+
+    func testContextKeepsValidPossessivesAndExistentialThere() {
+        for source in ["Your car ", "Their car ", "There is ", "Its name "] {
+            var engine = FastCorrectionEngine()
+            engine.synchronize(leftContext: "")
+            let words = source.split(separator: " ").map(String.init)
+            XCTAssertNil(engine.consume(words[0] + " "))
+            XCTAssertNil(engine.consume(words[1] + " "))
+        }
+    }
+
+    func testPersonalSuppressionPreventsRepeatedCorrection() {
+        var engine = FastCorrectionEngine(suppressionProvider: { original, replacement in
+            original == "Your going" && replacement == "You're going"
+        })
+        engine.synchronize(leftContext: "")
+        _ = engine.consume("Your ")
+        XCTAssertNil(engine.consume("going "))
+    }
+
     func testUnknownContextAvoidsCapitalisation() {
         var engine = FastCorrectionEngine()
         engine.synchronize(leftContext: nil)
@@ -182,5 +236,23 @@ final class FastCorrectionEngineTests: XCTestCase {
             for: correction,
             selection: NSRange(location: 5, length: 0)
         ))
+    }
+}
+
+final class PersonalizationStoreTests: XCTestCase {
+    func testTwoImmediateRejectionsSuppressPairWithoutStoringContext() {
+        let suiteName = "CappyTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = PersonalizationStore(defaults: defaults)
+
+        XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        store.recordRejected(original: "aggree", replacement: "agree")
+        XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        store.recordRejected(original: "aggree", replacement: "agree")
+        XCTAssertTrue(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        store.recordAccepted(original: "aggree", replacement: "agree")
+        store.recordAccepted(original: "aggree", replacement: "agree")
+        XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
     }
 }

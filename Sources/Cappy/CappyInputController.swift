@@ -6,23 +6,32 @@ private struct CorrectionLedger {
     let range: NSRange
     let original: String
     let correctedText: String
+    let replacement: String
     let suffix: String
     let expectedCaretLocation: Int
 }
 
 @objc(CappyInputController)
 final class CappyInputController: IMKInputController {
-    private var engine = FastCorrectionEngine(candidateProvider: NativeSpellingCandidates.suggestions)
+    private var engine = FastCorrectionEngine(
+        candidateProvider: NativeSpellingCandidates.suggestions,
+        suppressionProvider: PersonalizationStore.shared.shouldSuppress
+    )
     private var recentCorrection: CorrectionLedger?
     private var expectedCaretLocation: Int?
     private var needsContextSync = true
+    private var correctionsSuppressedForApp = false
 
     override func activateServer(_ sender: Any!) {
         invalidateSession()
+        correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
+            bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        )
         super.activateServer(sender)
     }
 
     override func deactivateServer(_ sender: Any!) {
+        acceptRecentCorrection()
         invalidateSession()
         super.deactivateServer(sender)
     }
@@ -39,9 +48,14 @@ final class CappyInputController: IMKInputController {
     private func processInput(_ string: String, client: any IMKTextInput) -> Bool {
         let inputReceived = ContinuousClock.now
 
+        if correctionsSuppressedForApp {
+            client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+            return true
+        }
+
         reconcileCaret(with: client)
         synchronizeContextIfNeeded(from: client)
-        recentCorrection = nil
+        acceptRecentCorrection()
 
         // Direct input is committed before any correction work. The deterministic
         // Phase 1 decision is then measured and applied as one minimal replacement.
@@ -72,6 +86,7 @@ final class CappyInputController: IMKInputController {
             return true
         }
 
+        acceptRecentCorrection()
         invalidateSession()
         return false
     }
@@ -99,6 +114,7 @@ final class CappyInputController: IMKInputController {
             range: CorrectionRangePlanner.undoRange(for: correction, sourceRange: sourceRange),
             original: correction.original,
             correctedText: correction.replacement + correction.suffix,
+            replacement: correction.replacement,
             suffix: correction.suffix,
             expectedCaretLocation: expectedCaret
         )
@@ -118,9 +134,23 @@ final class CappyInputController: IMKInputController {
 
         let restored = correction.original + (removingSuffix ? "" : correction.suffix)
         client.insertText(restored, replacementRange: correction.range)
+        PersonalizationStore.shared.recordRejected(
+            original: correction.original,
+            replacement: correction.replacement
+        )
+        recentCorrection = nil
         invalidateSession()
         expectedCaretLocation = correction.range.location + (restored as NSString).length
         return true
+    }
+
+    private func acceptRecentCorrection() {
+        guard let correction = recentCorrection else { return }
+        PersonalizationStore.shared.recordAccepted(
+            original: correction.original,
+            replacement: correction.replacement
+        )
+        recentCorrection = nil
     }
 
     private func reconcileCaret(with client: any IMKTextInput) {
@@ -168,6 +198,20 @@ final class CappyInputController: IMKInputController {
         recentCorrection = nil
         expectedCaretLocation = nil
         needsContextSync = true
+    }
+}
+
+private enum SafetyPolicy {
+    private static let suppressedBundleIdentifiers: Set<String> = [
+        "com.apple.Terminal",
+        "com.apple.dt.Xcode",
+        "com.googlecode.iterm2",
+        "com.microsoft.VSCode"
+    ]
+
+    static func suppressesCorrections(bundleIdentifier: String?) -> Bool {
+        guard let bundleIdentifier else { return false }
+        return suppressedBundleIdentifiers.contains(bundleIdentifier)
     }
 }
 

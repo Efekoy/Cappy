@@ -13,6 +13,9 @@ This phase contains no neural model, Core ML, Accessibility fallback, event tap,
 - Unknown words are checked against macOS's offline British English dictionary. Cappy accepts only a top-ranked single insertion, deletion, adjacent transposition, or nearby-key substitution.
 - High-confidence missing apostrophes such as `dont` → `don't`, `cant` → `can't`, and `youre` → `you're` are corrected without a model.
 - A lowercase first word is capitalised at the start of a document or after `.`, `!`, `?`, or a newline.
+- Bounded contextual rules handle high-confidence valid-word errors including `Your going` → `You're going`, `there car` → `their car`, and `should of` → `should have`.
+- Immediate undo is learned locally. After the same correction pair is rejected twice, Cappy suppresses it; only bounded pair counters are persisted.
+- Corrections are disabled in known terminal and code-editor apps, while token checks suppress URLs, email addresses, paths, identifiers, numbers, and mixed-case names.
 - A replacement is applied only when the client still exposes the exact expected source range and a collapsed caret.
 - Input source changes, focus/session changes, navigation commands, selections, and unexpected caret movement invalidate buffered state.
 - Immediate Backspace restores `definately` and removes the committing whitespace. Immediate Undo restores `definately` while preserving it.
@@ -77,4 +80,4 @@ The uninstall target moves the installed app to the Trash.
 
 Correction currently triggers on whitespace, so the active word remains unchanged until Space, Return, or another whitespace character is typed. This avoids modifying domain and path segments before the complete safety classifier exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
 
-The next engine milestone is broader safety classification and contextual scoring for valid-word errors such as `Your going home`. Personalisation, statistical context, and Core ML remain later phases.
+The current contextual scorer intentionally covers only high-confidence confusion patterns. A broader statistical corpus evaluation and optional Core ML candidate reranker remain future work; the project does not include an unmeasured model in the typing path.
