@@ -2,12 +2,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "AutoCaps",
+    name: "Cappy",
     platforms: [.macOS(.v13)],
-    products: [.executable(name: "AutoCaps", targets: ["AutoCaps"])],
+    products: [.executable(name: "Cappy", targets: ["Cappy"])],
     targets: [
-        .executableTarget(name: "AutoCaps", path: "Sources/AutoCaps"),
-        .testTarget(name: "AutoCapsTests", dependencies: ["AutoCaps"], path: "Tests/AutoCapsTests")
+        .executableTarget(
+            name: "Cappy",
+            path: "Sources/Cappy",
+            linkerSettings: [.linkedFramework("InputMethodKit")]
+        ),
+        .testTarget(name: "CappyTests", dependencies: ["Cappy"], path: "Tests/CappyTests")
     ],
     swiftLanguageModes: [.v5]
 )

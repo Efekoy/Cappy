@@ -1,59 +1,71 @@
-# AutoCaps
+# Cappy
 
-AutoCaps is a tiny native macOS menu-bar utility providing sentence capitalisation, double-space periods, conservative missing-apostrophe correction, standalone `i` → `I`, and Apple-powered typo suggestions.
+Cappy is a native macOS contextual autocorrect project. The current milestone is the smallest InputMethodKit proof of integration: it behaves as a direct English input source and corrects `definately` to `definitely` when the following whitespace commits the word.
 
-Press Control-Option-Command-A (`⌃⌥⌘A`) to turn all AutoCaps processing on or off globally. The menu-bar item shows the current state.
+This phase contains no neural model, Core ML, Accessibility fallback, event tap, network access, polling, analytics, or persisted typing history.
 
-It uses only AppKit, Core Graphics, Accessibility, and ServiceManagement. It has no network code, analytics, typing log, clipboard access, third-party dependencies, web views, or polling during normal operation.
+## Current behavior
 
-Typo Fixes is on by default and can be switched off under Settings in the menu bar. AutoCaps asks macOS's `NSSpellChecker` about a single completed word when you press Space, Return, or safe punctuation; it does not call the checker on every keystroke. Only short, single-word suggestions within two edits are applied. Existing contraction rules take priority. URL/email/code token joiners (including `.` and `@`), mixed-case words, and manually capitalised names are skipped. A word before a period is held briefly: it is corrected only if Space or Return follows, so domains are not changed. System spelling suggestions can still be wrong; switch Typo Fixes off if they interfere with a workflow.
+- InputMethodKit receives text for each client input session.
+- Ordinary text is inserted immediately.
+- The correction engine retains only the active word, bounded to 32 characters.
+- After whitespace, `definately` is replaced only when the client still exposes the exact expected source range and a collapsed caret.
+- Input source changes, focus/session changes, navigation commands, selections, and unexpected caret movement invalidate buffered state.
+- Immediate Backspace restores `definately` and removes the committing whitespace. Immediate Undo restores `definately` while preserving it.
+- Performance diagnostics contain only aggregate decision durations, never typed or replacement text.
 
-## Build and run
+## Build and test
 
-Requires macOS 13 or later and current Xcode Command Line Tools.
+Xcode can open [Cappy.xcodeproj](Cappy.xcodeproj). The command-line build uses the same Swift sources:
 
 ```sh
 make test
 make app
-open dist/AutoCaps.app
 ```
 
-For reliable Launch at Login behavior, install it before first-run setup:
+The packaged input method is created at `dist/Cappy.app`.
+
+## Install and enable
+
+Install for the current macOS user:
 
 ```sh
 make install
-open /Applications/AutoCaps.app
 ```
 
-Grant Accessibility and Input Monitoring when prompted. The setup window checks permissions once per second only while that window is visible; normal operation has no timer. After setup, AutoCaps has no Dock icon and lives in the menu bar.
+Then log out and back in so macOS refreshes its input-method registry. Open **System Settings → Keyboard → Text Input → Edit**, press **+**, find **Cappy** under English, and add it. Select Cappy from the Input menu in the menu bar. If the Input menu is hidden, enable **Show Input menu in menu bar** in the same Text Input sheet.
 
-The build is locally signed with a stable designated requirement. The first build using this identity needs one permission grant; subsequent local rebuilds retain the same identity and should not create repeated Accessibility/Input Monitoring entries. A Developer ID certificate remains the preferred choice if the app is ever distributed to another Mac.
+Open TextEdit and type:
 
-## Privacy and safety
+```text
+I definately agree
+```
 
-- Typed text is never saved or transmitted.
-- Focus is checked before each text key; `AXSecureTextField` controls are untouched.
-- Only after focus/navigation changes, AutoCaps requests at most 64 characters immediately before the cursor. It never requests the complete field value.
-- The current-word buffer is capped at 32 characters.
-- Generated events carry a private event tag and are ignored by AutoCaps.
-- Command, Control, Option, and Function-modified keystrokes are never transformed.
+The visible result should be `I definitely agree `. Press Backspace immediately after the correction to restore `I definately agree`.
 
-The editable safe-contraction table is `TextEngine.contractionDictionary` in `Sources/AutoCaps/TextEngine.swift`.
-The list now includes the requested `cant` → `can't`, `ill` → `I'll`, and `its` → `it's`. The latter two are ambiguous English words, so disable Contractions in the menu if those corrections are unwanted in a particular workflow.
+Cappy does not require Accessibility or Input Monitoring permission. Remove any permissions previously granted to the older prototype if desired; this version does not use them.
 
-## Compatibility and limitations
-
-Standard AppKit fields use native cursor ranges. Chromium/Electron editors such as Discord and Codex use bounded web text-marker ranges. Some rich web editors (including some Google Docs modes), terminal emulators, remote desktops, games, canvas editors, and apps using secure event input may still suppress event taps or expose no cursor information. AutoCaps then avoids guessing after focus changes.
-Discord's composer can omit cursor context when switching DMs. AutoCaps no longer assumes a new DM's composer is empty simply because it was clicked; it waits for explicit empty context or a known-empty composer state. This avoids capitalising inside existing drafts, though an empty composer with no Accessibility cursor data may not capitalise its first letter.
-
-Multi-character input-method events are passed through unchanged to avoid corrupting composed or non-Latin input.
-
-AutoCaps is automatically bypassed while Microsoft's Windows App (`com.microsoft.rdc.macos`) is frontmost, preventing generated replacement keystrokes from being forwarded incorrectly to a remote PC. The global toggle hotkey still works while Windows App is active.
-
-## Tests
-
-The transformation engine is independent of the global event layer:
+To uninstall, first select another keyboard input source, then run:
 
 ```sh
-swift test
+make uninstall
 ```
+
+The uninstall target moves the installed app to the Trash.
+
+## Structure
+
+- `Cappy.xcodeproj`: native macOS application target
+- `Sources/Cappy/main.swift`: starts the single `IMKServer`
+- `Sources/Cappy/CappyInputController.swift`: immediate passthrough, document validation, minimal replacement, and undo ledger
+- `Sources/Cappy/PhaseOneCorrectionEngine.swift`: platform-independent bounded word state and hard-coded Phase 1 rule
+- `Sources/Cappy/PerformanceRecorder.swift`: text-free timing aggregation
+- `Resources/Info.plist`: input-source registration metadata
+- `Tests/CappyTests`: engine and UTF-16 range tests
+- `scripts/build-app.sh`: reproducible local package builder
+
+## Phase 1 limits
+
+Only the requested `definately` rule is active. Correction currently triggers on whitespace, which avoids modifying domain and path segments before safety classification exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
+
+Phase 2 should introduce a small candidate-generation engine with dictionary lookup, bounded Damerau–Levenshtein distance, keyboard-neighbour costs, duplicate/missing letter handling, and conservative confidence classes. Contextual statistics and Core ML remain later phases.

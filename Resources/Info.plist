@@ -1,14 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0"><dict>
-    <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleExecutable</key><string>AutoCaps</string>
-    <key>CFBundleIdentifier</key><string>com.local.AutoCaps</string>
-    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>AutoCaps</string>
-    <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
-    <key>LSMinimumSystemVersion</key><string>13.0</string>
-    <key>LSUIElement</key><true/>
-</dict></plist>
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Cappy</string>
+    <key>CFBundleExecutable</key>
+    <string>Cappy</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.efekoy.Cappy</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Cappy</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.2.0</string>
+    <key>CFBundleVersion</key>
+    <string>2</string>
+    <key>InputMethodConnectionName</key>
+    <string>com.efekoy.Cappy.InputMethodConnection</string>
+    <key>InputMethodServerControllerClass</key>
+    <string>CappyInputController</string>
+    <key>InputMethodServerDelegateClass</key>
+    <string>CappyInputController</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSUIElement</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSSupportsSuddenTermination</key>
+    <true/>
+    <key>TISInputSourceID</key>
+    <string>com.efekoy.Cappy</string>
+    <key>TISIntendedLanguage</key>
+    <string>en</string>
+    <key>tsInputMethodIconFileKey</key>
+    <string>Cappy.tiff</string>
+    <key>tsInputMethodCharacterRepertoireKey</key>
+    <array>
+        <string>Latn</string>
+    </array>
+</dict>
+</plist>
