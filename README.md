@@ -1,6 +1,6 @@
 # Cappy
 
-Cappy is a native macOS contextual autocorrect project. The current milestone is the smallest InputMethodKit proof of integration: it behaves as a direct English input source and corrects `definately` to `definitely` when the following whitespace commits the word.
+Cappy is a native macOS contextual autocorrect project. It behaves as a direct English input source and applies conservative, deterministic corrections when the following whitespace commits a word.
 
 This phase contains no neural model, Core ML, Accessibility fallback, event tap, network access, polling, analytics, or persisted typing history.
 
@@ -8,8 +8,11 @@ This phase contains no neural model, Core ML, Accessibility fallback, event tap,
 
 - InputMethodKit receives text for each client input session.
 - Ordinary text is inserted immediately.
-- The correction engine retains only the active word, bounded to 32 characters.
-- After whitespace, `definately` is replaced only when the client still exposes the exact expected source range and a collapsed caret.
+- The correction engine retains only the active word plus sentence-boundary state. It reads at most 96 UTF-16 units of left context when a client session starts.
+- High-confidence spelling corrections include `definately` → `definitely`, `welocme` → `welcome`, `teh`/`tge`/`yhe` → `the`, and a small extensible common-typo table.
+- High-confidence missing apostrophes such as `dont` → `don't`, `cant` → `can't`, and `youre` → `you're` are corrected without a model.
+- A lowercase first word is capitalised at the start of a document or after `.`, `!`, `?`, or a newline.
+- A replacement is applied only when the client still exposes the exact expected source range and a collapsed caret.
 - Input source changes, focus/session changes, navigation commands, selections, and unexpected caret movement invalidate buffered state.
 - Immediate Backspace restores `definately` and removes the committing whitespace. Immediate Undo restores `definately` while preserving it.
 - Performance diagnostics contain only aggregate decision durations, never typed or replacement text.
@@ -37,13 +40,15 @@ On the first installation, open **System Settings → Keyboard → Text Input �
 
 Later development updates do not require a logout or restart. `make install` replaces the installed bundle, stops the old Cappy process, re-registers the input source, and refreshes the per-user text-input services. Cappy launches the updated executable on the next key event while retaining the same input-source selection.
 
-Open TextEdit and type:
+Open TextEdit and type each line, including the trailing space:
 
 ```text
 I definately agree
+hello chat welocme
+dont worry
 ```
 
-The visible result should be `I definitely agree `. Press Backspace immediately after the correction to restore `I definately agree`.
+The visible results should be `I definitely agree `, `Hello chat welcome `, and `Don't worry `. Press Backspace immediately after a correction to restore the original word.
 
 Cappy does not require Accessibility or Input Monitoring permission. Remove any permissions previously granted to the older prototype if desired; this version does not use them.
 
@@ -60,15 +65,15 @@ The uninstall target moves the installed app to the Trash.
 - `Cappy.xcodeproj`: native macOS application target
 - `Sources/Cappy/main.swift`: starts the single `IMKServer`
 - `Sources/Cappy/CappyInputController.swift`: immediate passthrough, document validation, minimal replacement, and undo ledger
-- `Sources/Cappy/PhaseOneCorrectionEngine.swift`: platform-independent bounded word state and hard-coded Phase 1 rule
+- `Sources/Cappy/FastCorrectionEngine.swift`: platform-independent bounded word state, sentence-boundary tracking, and high-confidence correction tables
 - `Sources/Cappy/PerformanceRecorder.swift`: text-free timing aggregation
 - `Resources/Info.plist`: input-source registration metadata
 - `Tests/CappyTests`: engine and UTF-16 range tests
 - `scripts/build-app.sh`: reproducible local package builder
 - `scripts/install-app.sh`: in-place installer and input-service refresher
 
-## Phase 1 limits
+## Current limits
 
-Only the requested `definately` rule is active. Correction currently triggers on whitespace, which avoids modifying domain and path segments before safety classification exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
+Correction currently triggers on whitespace, so the active word remains unchanged until Space, Return, or another whitespace character is typed. This avoids modifying domain and path segments before the complete safety classifier exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
 
-Phase 2 should introduce a small candidate-generation engine with dictionary lookup, bounded Damerau–Levenshtein distance, keyboard-neighbour costs, duplicate/missing letter handling, and conservative confidence classes. Contextual statistics and Core ML remain later phases.
+The next engine milestone is dictionary lookup with bounded Damerau–Levenshtein candidate generation, keyboard-neighbour costs, duplicate/missing letter handling, and conservative confidence classes. Contextual statistics and Core ML remain later phases.

@@ -12,9 +12,10 @@ private struct CorrectionLedger {
 
 @objc(CappyInputController)
 final class CappyInputController: IMKInputController {
-    private var engine = PhaseOneCorrectionEngine()
+    private var engine = FastCorrectionEngine()
     private var recentCorrection: CorrectionLedger?
     private var expectedCaretLocation: Int?
+    private var needsContextSync = true
 
     override func activateServer(_ sender: Any!) {
         invalidateSession()
@@ -32,9 +33,14 @@ final class CappyInputController: IMKInputController {
 
     override func inputText(_ string: String!, client sender: Any!) -> Bool {
         guard let string, !string.isEmpty, let client = sender as? any IMKTextInput else { return false }
+        return processInput(string, client: client)
+    }
+
+    private func processInput(_ string: String, client: any IMKTextInput) -> Bool {
         let inputReceived = ContinuousClock.now
 
         reconcileCaret(with: client)
+        synchronizeContextIfNeeded(from: client)
         recentCorrection = nil
 
         // Direct input is committed before any correction work. The deterministic
@@ -71,7 +77,7 @@ final class CappyInputController: IMKInputController {
     }
 
     private func apply(
-        _ correction: PhaseOneCorrection,
+        _ correction: FastCorrection,
         to client: any IMKTextInput,
         inputReceived: ContinuousClock.Instant
     ) {
@@ -131,6 +137,25 @@ final class CappyInputController: IMKInputController {
         expectedCaretLocation = selection.location == NSNotFound || selection.length != 0 ? nil : selection.location
     }
 
+    private func synchronizeContextIfNeeded(from client: any IMKTextInput) {
+        guard needsContextSync else { return }
+        needsContextSync = false
+
+        let selection = client.selectedRange()
+        guard selection.location != NSNotFound, selection.length == 0 else {
+            engine.synchronize(leftContext: nil)
+            return
+        }
+
+        let length = min(selection.location, FastCorrectionEngine.maximumContextUTF16Length)
+        let range = NSRange(location: selection.location - length, length: length)
+        if length == 0 {
+            engine.synchronize(leftContext: "")
+        } else {
+            engine.synchronize(leftContext: text(in: range, from: client))
+        }
+    }
+
     private func text(in range: NSRange, from client: any IMKTextInput) -> String? {
         guard range.location != NSNotFound,
               let attributed = client.attributedSubstring(from: range),
@@ -142,5 +167,6 @@ final class CappyInputController: IMKInputController {
         engine.invalidate()
         recentCorrection = nil
         expectedCaretLocation = nil
+        needsContextSync = true
     }
 }

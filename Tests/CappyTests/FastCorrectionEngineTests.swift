@@ -1,11 +1,11 @@
 import XCTest
 @testable import Cappy
 
-final class PhaseOneCorrectionEngineTests: XCTestCase {
+final class FastCorrectionEngineTests: XCTestCase {
     func testCorrectsRequestedTypoAfterSpace() {
-        var engine = PhaseOneCorrectionEngine()
+        var engine = FastCorrectionEngine()
         for character in "I definately" { XCTAssertNil(engine.consume(String(character))) }
-        XCTAssertEqual(engine.consume(" "), PhaseOneCorrection(
+        XCTAssertEqual(engine.consume(" "), FastCorrection(
             original: "definately",
             replacement: "definitely",
             suffix: " "
@@ -13,13 +13,59 @@ final class PhaseOneCorrectionEngineTests: XCTestCase {
     }
 
     func testPreservesInitialCapitalisation() {
-        var engine = PhaseOneCorrectionEngine()
+        var engine = FastCorrectionEngine()
         _ = engine.consume("Definately")
         XCTAssertEqual(engine.consume("\n")?.replacement, "Definitely")
     }
 
+    func testCorrectsTypoShownInUserReport() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "Hello chat ")
+        _ = engine.consume("welocme")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "welcome")
+    }
+
+    func testCapitalisesFirstWordInEmptyDocument() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "")
+        _ = engine.consume("hello")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "Hello")
+    }
+
+    func testCapitalisesAfterSentenceTerminator() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "That worked. ")
+        _ = engine.consume("next")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "Next")
+    }
+
+    func testDoesNotCapitaliseInMiddleOfSentence() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "Hello ")
+        _ = engine.consume("chat")
+        XCTAssertNil(engine.consume(" "))
+    }
+
+    func testAddsHighConfidenceApostrophes() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "")
+        _ = engine.consume("dont")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "Don't")
+
+        engine.synchronize(leftContext: "I ")
+        _ = engine.consume("dont")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "don't")
+    }
+
+    func testUnknownContextAvoidsCapitalisation() {
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: nil)
+        _ = engine.consume("hello")
+        XCTAssertNil(engine.consume(" "))
+    }
+
     func testDoesNotCorrectURLsPathsOrInsideLongTokens() {
-        var engine = PhaseOneCorrectionEngine()
+        var engine = FastCorrectionEngine()
         _ = engine.consume("definately.com ")
         XCTAssertNil(engine.consume("next "))
 
@@ -30,12 +76,12 @@ final class PhaseOneCorrectionEngineTests: XCTestCase {
         XCTAssertNil(engine.consume("name@definately "))
 
         engine.invalidate()
-        _ = engine.consume(String(repeating: "a", count: PhaseOneCorrectionEngine.maximumWordLength + 1) + "definately")
+        _ = engine.consume(String(repeating: "a", count: FastCorrectionEngine.maximumWordLength + 1) + "definately")
         XCTAssertNil(engine.consume(" "))
     }
 
     func testSupportsUnicodeWithoutSplittingGraphemes() {
-        var engine = PhaseOneCorrectionEngine()
+        var engine = FastCorrectionEngine()
         for character in "naïve definately " {
             if character == " " && engine.currentWord == "definately" {
                 XCTAssertEqual(engine.consume(String(character))?.replacement, "definitely")
@@ -46,7 +92,7 @@ final class PhaseOneCorrectionEngineTests: XCTestCase {
     }
 
     func testInvalidationDropsBufferedWordAndAdvancesGeneration() {
-        var engine = PhaseOneCorrectionEngine()
+        var engine = FastCorrectionEngine()
         _ = engine.consume("defin")
         let priorGeneration = engine.generation
         engine.invalidate()
@@ -57,14 +103,14 @@ final class PhaseOneCorrectionEngineTests: XCTestCase {
     }
 
     func testRangesUseUTF16DocumentOffsets() {
-        let correction = PhaseOneCorrection(original: "definately", replacement: "definitely", suffix: " ")
+        let correction = FastCorrection(original: "definately", replacement: "definitely", suffix: " ")
         XCTAssertEqual(correction.originalUTF16Length, 10)
         XCTAssertEqual(correction.replacementUTF16Length, 10)
         XCTAssertEqual(correction.suffixUTF16Length, 1)
     }
 
     func testReplacementRangeLeavesCommittedSpaceInPlace() {
-        let correction = PhaseOneCorrection(original: "definately", replacement: "definitely", suffix: " ")
+        let correction = FastCorrection(original: "definately", replacement: "definitely", suffix: " ")
         let sourceRange = CorrectionRangePlanner.sourceRange(
             for: correction,
             selection: NSRange(location: 13, length: 0)
@@ -77,7 +123,7 @@ final class PhaseOneCorrectionEngineTests: XCTestCase {
     }
 
     func testReplacementRangeRejectsSelectionsAndImpossibleOffsets() {
-        let correction = PhaseOneCorrection(original: "definately", replacement: "definitely", suffix: " ")
+        let correction = FastCorrection(original: "definately", replacement: "definitely", suffix: " ")
         XCTAssertNil(CorrectionRangePlanner.sourceRange(
             for: correction,
             selection: NSRange(location: 13, length: 2)

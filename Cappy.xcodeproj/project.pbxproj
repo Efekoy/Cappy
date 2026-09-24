@@ -40,7 +40,7 @@
 			children = (
 				A10000000000000000000010 /* main.swift */,
 				A10000000000000000000011 /* CappyInputController.swift */,
-				A10000000000000000000012 /* PhaseOneCorrectionEngine.swift */,
+				A10000000000000000000012 /* FastCorrectionEngine.swift */,
 				A10000000000000000000013 /* PerformanceRecorder.swift */,
 			);
 			name = Sources;
@@ -72,7 +72,7 @@
 		A10000000000000000000009 /* Cappy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; path = Cappy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10000000000000000000010 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		A10000000000000000000011 /* CappyInputController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CappyInputController.swift; sourceTree = "<group>"; };
-		A10000000000000000000012 /* PhaseOneCorrectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhaseOneCorrectionEngine.swift; sourceTree = "<group>"; };
+		A10000000000000000000012 /* FastCorrectionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FastCorrectionEngine.swift; sourceTree = "<group>"; };
 		A10000000000000000000013 /* PerformanceRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PerformanceRecorder.swift; sourceTree = "<group>"; };
 		A10000000000000000000014 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		A10000000000000000000015 /* Cappy.svg */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Cappy.svg; sourceTree = "<group>"; };
@@ -86,7 +86,7 @@
 		A10000000000000000000043 /* CappySettingsIcon@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "CappySettingsIcon@2x.png"; sourceTree = "<group>"; };
 		A10000000000000000000018 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* main.swift */; };
 		A10000000000000000000019 /* CappyInputController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000011 /* CappyInputController.swift */; };
-		A10000000000000000000020 /* PhaseOneCorrectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* PhaseOneCorrectionEngine.swift */; };
+		A10000000000000000000020 /* FastCorrectionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000012 /* FastCorrectionEngine.swift */; };
 		A10000000000000000000021 /* PerformanceRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000013 /* PerformanceRecorder.swift */; };
 		A10000000000000000000022 /* Cappy.svg in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000015 /* Cappy.svg */; };
 		A10000000000000000000023 /* Cappy.tiff in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000016 /* Cappy.tiff */; };
