@@ -156,7 +156,10 @@ struct FastCorrectionEngine {
                 nextWordBeginsSentence = false
                 remember(
                     correction?.replacement ?? completedWord,
-                    replacingPreviousWord: correction?.original.contains(" ") == true
+                    replacingPreviousWordCount: max(
+                        0,
+                        (correction?.original.split(whereSeparator: { $0.isWhitespace }).count ?? 1) - 1
+                    )
                 )
             }
             if Self.endsSentence(character) {
@@ -182,17 +185,15 @@ struct FastCorrectionEngine {
             return (word, replacement)
         }
 
-        guard let previous = recentWords.last,
-              let replacement = ContextualScorer.replacement(previous: previous, current: word) else { return nil }
-        let original = previous + " " + word
-        guard !suppressionProvider(original, replacement) else { return nil }
-        return (original, replacement)
+        guard let contextual = ContextualScorer.replacement(history: recentWords, current: word),
+              !suppressionProvider(contextual.original, contextual.replacement) else { return nil }
+        return contextual
     }
 
-    private mutating func remember(_ correctedText: String, replacingPreviousWord: Bool) {
+    private mutating func remember(_ correctedText: String, replacingPreviousWordCount: Int) {
         let words = correctedText.split(whereSeparator: { $0.isWhitespace }).map(String.init)
-        if replacingPreviousWord, !recentWords.isEmpty {
-            recentWords.removeLast()
+        if replacingPreviousWordCount > 0 {
+            recentWords.removeLast(min(replacingPreviousWordCount, recentWords.count))
         }
         recentWords.append(contentsOf: words)
         if recentWords.count > 12 {
@@ -324,30 +325,39 @@ enum ContextualScorer {
         "bag", "car", "choice", "computer", "friend", "home", "house", "idea", "name",
         "phone", "problem", "room", "team", "work"
     ]
+    private static let predicateComplements: Set<String> = [
+        "again", "away", "back", "great", "here", "home", "now", "out", "soon", "there", "to"
+    ]
 
-    static func replacement(previous: String, current: String) -> String? {
+    static func replacement(history: [String], current: String) -> (original: String, replacement: String)? {
+        guard let previous = history.last else { return nil }
         let lhs = previous.lowercased()
         let rhs = current.lowercased()
 
         if ["should", "could", "would"].contains(lhs), rhs == "of" {
-            return preserveInitialCase(of: previous, in: lhs + " have")
-        }
-        if lhs == "your", predicateWords.contains(rhs) {
-            return preserveInitialCase(of: previous, in: "you're " + current)
-        }
-        if lhs == "their", predicateWords.contains(rhs) {
-            return preserveInitialCase(of: previous, in: "they're " + current)
-        }
-        if lhs == "there", predicateWords.contains(rhs) {
-            return preserveInitialCase(of: previous, in: "they're " + current)
+            return (previous + " " + current, preserveInitialCase(of: previous, in: lhs + " have"))
         }
         if lhs == "there", possessionWords.contains(rhs) {
-            return preserveInitialCase(of: previous, in: "their " + current)
+            return (previous + " " + current, preserveInitialCase(of: previous, in: "their " + current))
         }
-        if lhs == "its", predicateWords.contains(rhs) {
-            return preserveInitialCase(of: previous, in: "it's " + current)
+
+        guard history.count >= 2 else { return nil }
+        let subject = history[history.count - 2]
+        let predicate = previous
+        let subjectLower = subject.lowercased()
+        let predicateLower = predicate.lowercased()
+        guard predicateWords.contains(predicateLower), predicateComplements.contains(rhs) else { return nil }
+
+        let contraction: String
+        switch subjectLower {
+        case "your": contraction = "you're"
+        case "their", "there": contraction = "they're"
+        case "its": contraction = "it's"
+        default: return nil
         }
-        return nil
+        let original = [subject, predicate, current].joined(separator: " ")
+        let replacement = [preserveInitialCase(of: subject, in: contraction), predicate, current].joined(separator: " ")
+        return (original, replacement)
     }
 
     private static func preserveInitialCase(of original: String, in replacement: String) -> String {

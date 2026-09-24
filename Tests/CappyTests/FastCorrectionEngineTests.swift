@@ -111,9 +111,10 @@ final class FastCorrectionEngineTests: XCTestCase {
         var engine = FastCorrectionEngine()
         engine.synchronize(leftContext: "")
         XCTAssertNil(engine.consume("Your "))
-        XCTAssertEqual(engine.consume("going "), FastCorrection(
-            original: "Your going",
-            replacement: "You're going",
+        XCTAssertNil(engine.consume("going "))
+        XCTAssertEqual(engine.consume("home "), FastCorrection(
+            original: "Your going home",
+            replacement: "You're going home",
             suffix: " "
         ))
     }
@@ -130,15 +131,16 @@ final class FastCorrectionEngineTests: XCTestCase {
 
     func testContextCorrectsTheirThereAndItsBeforePredicate() {
         for (source, expected) in [
-            ("Their going ", "They're going"),
-            ("There going ", "They're going"),
-            ("Its going ", "It's going")
+            ("Their going to ", "They're going to"),
+            ("There going home ", "They're going home"),
+            ("Its going away ", "It's going away")
         ] {
             var engine = FastCorrectionEngine()
             engine.synchronize(leftContext: "")
             let words = source.split(separator: " ").map(String.init)
             XCTAssertNil(engine.consume(words[0] + " "))
-            XCTAssertEqual(engine.consume(words[1] + " ")?.replacement, expected)
+            XCTAssertNil(engine.consume(words[1] + " "))
+            XCTAssertEqual(engine.consume(words[2] + " ")?.replacement, expected)
         }
     }
 
@@ -150,15 +152,24 @@ final class FastCorrectionEngineTests: XCTestCase {
             XCTAssertNil(engine.consume(words[0] + " "))
             XCTAssertNil(engine.consume(words[1] + " "))
         }
+
+        for source in ["Your ready meal ", "Their going rate ", "Its going rate "] {
+            var engine = FastCorrectionEngine()
+            engine.synchronize(leftContext: "")
+            for word in source.split(separator: " ") {
+                XCTAssertNil(engine.consume(word + " "), source)
+            }
+        }
     }
 
     func testPersonalSuppressionPreventsRepeatedCorrection() {
         var engine = FastCorrectionEngine(suppressionProvider: { original, replacement in
-            original == "Your going" && replacement == "You're going"
+            original == "Your going home" && replacement == "You're going home"
         })
         engine.synchronize(leftContext: "")
         _ = engine.consume("Your ")
-        XCTAssertNil(engine.consume("going "))
+        _ = engine.consume("going ")
+        XCTAssertNil(engine.consume("home "))
     }
 
     func testUnknownContextAvoidsCapitalisation() {
