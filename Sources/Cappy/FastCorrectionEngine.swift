@@ -33,6 +33,8 @@ enum CorrectionRangePlanner {
 /// A bounded, deterministic correction engine for high-confidence edits. It
 /// retains only the active word and enough state to recognise sentence starts.
 struct FastCorrectionEngine {
+    typealias CandidateProvider = (String) -> [String]
+
     static let maximumWordLength = 32
     static let maximumContextUTF16Length = 96
 
@@ -77,6 +79,11 @@ struct FastCorrectionEngine {
     private var wordOverflowed = false
     private var wordBeganSentence = false
     private var nextWordBeginsSentence = true
+    private let candidateProvider: CandidateProvider
+
+    init(candidateProvider: @escaping CandidateProvider = { _ in [] }) {
+        self.candidateProvider = candidateProvider
+    }
 
     mutating func invalidate() {
         currentWord.removeAll(keepingCapacity: true)
@@ -122,7 +129,7 @@ struct FastCorrectionEngine {
             if character.isWhitespace,
                !tokenIsProtected,
                !wordOverflowed,
-               let replacement = Self.replacement(for: completedWord, atSentenceStart: wordBeganSentence) {
+               let replacement = replacement(for: completedWord, atSentenceStart: wordBeganSentence) {
                 correction = FastCorrection(
                     original: completedWord,
                     replacement: replacement,
@@ -149,27 +156,110 @@ struct FastCorrectionEngine {
         return correction
     }
 
-    private static func replacement(for word: String, atSentenceStart: Bool) -> String? {
+    private func replacement(for word: String, atSentenceStart: Bool) -> String? {
         guard !word.isEmpty else { return nil }
         let lowercased = word.lowercased()
-        var replacement = commonReplacements[lowercased] ?? apostropheReplacements[lowercased]
+        var replacement = Self.commonReplacements[lowercased] ?? Self.apostropheReplacements[lowercased]
+
+        if replacement == nil, Self.hasSimpleCasing(word) {
+            replacement = conservativeDictionaryReplacement(for: lowercased)
+        }
 
         if replacement == nil, atSentenceStart, word.first?.isLowercase == true {
-            replacement = capitalizingFirstLetter(of: word)
+            replacement = Self.capitalizingFirstLetter(of: word)
         }
         guard var replacement, replacement != word else { return nil }
 
         if atSentenceStart {
-            replacement = capitalizingFirstLetter(of: replacement)
+            replacement = Self.capitalizingFirstLetter(of: replacement)
         } else if word.first?.isUppercase == true {
-            replacement = capitalizingFirstLetter(of: replacement)
+            replacement = Self.capitalizingFirstLetter(of: replacement)
         }
         return replacement == word ? nil : replacement
     }
 
+    private func conservativeDictionaryReplacement(for word: String) -> String? {
+        guard word.count >= 4,
+              word.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return nil }
+
+        let suggestions = candidateProvider(word).prefix(5).map { $0.lowercased() }
+        guard let first = suggestions.first,
+              Self.isSafeSingleEdit(from: word, to: first) else { return nil }
+        return first
+    }
+
+    private static func isSafeSingleEdit(from observed: String, to candidate: String) -> Bool {
+        guard candidate != observed,
+              candidate.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return false }
+
+        let source = Array(observed)
+        let target = Array(candidate)
+        let lengthDifference = target.count - source.count
+        guard abs(lengthDifference) <= 1 else { return false }
+
+        if lengthDifference == 0 {
+            let mismatches = source.indices.filter { source[$0] != target[$0] }
+            if mismatches.count == 2,
+               mismatches[1] == mismatches[0] + 1,
+               source[mismatches[0]] == target[mismatches[1]],
+               source[mismatches[1]] == target[mismatches[0]] {
+                return true
+            }
+            if mismatches.count == 1 {
+                return keyboardNeighbours[source[mismatches[0]], default: []].contains(target[mismatches[0]])
+            }
+            return false
+        }
+
+        // A single missing or extra letter is a high-confidence edit only when
+        // the rest of the word is identical.
+        let longer = lengthDifference > 0 ? target : source
+        let shorter = lengthDifference > 0 ? source : target
+        var longIndex = 0
+        var shortIndex = 0
+        var skipped = false
+        while longIndex < longer.count, shortIndex < shorter.count {
+            if longer[longIndex] == shorter[shortIndex] {
+                longIndex += 1
+                shortIndex += 1
+            } else if !skipped {
+                skipped = true
+                longIndex += 1
+            } else {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static let keyboardNeighbours: [Character: Set<Character>] = {
+        let rows = [Array("qwertyuiop"), Array("asdfghjkl"), Array("zxcvbnm")]
+        var result: [Character: Set<Character>] = [:]
+        for (rowIndex, row) in rows.enumerated() {
+            for (column, key) in row.enumerated() {
+                var neighbours = Set<Character>()
+                for adjacentRowIndex in max(0, rowIndex - 1)...min(rows.count - 1, rowIndex + 1) {
+                    let adjacentRow = rows[adjacentRowIndex]
+                    let lowerBound = max(0, min(column - 1, adjacentRow.count - 1))
+                    let upperBound = min(adjacentRow.count - 1, column + 1)
+                    for adjacentColumn in lowerBound...upperBound
+                    where !(adjacentRowIndex == rowIndex && adjacentColumn == column) {
+                        neighbours.insert(adjacentRow[adjacentColumn])
+                    }
+                }
+                result[key] = neighbours
+            }
+        }
+        return result
+    }()
+
     private static func capitalizingFirstLetter(of text: String) -> String {
         guard let first = text.first else { return text }
         return first.uppercased() + text.dropFirst()
+    }
+
+    private static func hasSimpleCasing(_ word: String) -> Bool {
+        word == word.lowercased() || capitalizingFirstLetter(of: word.lowercased()) == word
     }
 
     private static func endsSentence(_ character: Character) -> Bool {

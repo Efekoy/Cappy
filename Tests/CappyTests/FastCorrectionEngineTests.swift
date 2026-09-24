@@ -25,6 +25,56 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(engine.consume(" ")?.replacement, "welcome")
     }
 
+    func testCorrectsGenericDuplicateLetterTypo() {
+        var engine = FastCorrectionEngine(candidateProvider: { word in
+            word == "aggree" ? ["agree", "aggro"] : []
+        })
+        engine.synchronize(leftContext: "I ")
+        _ = engine.consume("aggree")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
+    }
+
+    func testNativeDictionaryRanksAgreeForReportedTypo() {
+        XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "aggree").first, "agree")
+    }
+
+    func testCorrectsGenericTranspositionAndMissingLetter() {
+        var engine = FastCorrectionEngine(candidateProvider: { word in
+            switch word {
+            case "watre": return ["water", "ware"]
+            case "agre": return ["agree"]
+            default: return []
+            }
+        })
+        engine.synchronize(leftContext: "Some ")
+        _ = engine.consume("watre")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "water")
+
+        _ = engine.consume("agre")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
+    }
+
+    func testCorrectsKeyboardNeighbourSubstitution() {
+        var engine = FastCorrectionEngine(candidateProvider: { $0 == "hellp" ? ["hello"] : [] })
+        engine.synchronize(leftContext: "Say ")
+        _ = engine.consume("hellp")
+        XCTAssertEqual(engine.consume(" ")?.replacement, "hello")
+    }
+
+    func testRejectsDistantDictionarySuggestion() {
+        var distant = FastCorrectionEngine(candidateProvider: { _ in ["different"] })
+        distant.synchronize(leftContext: "A ")
+        _ = distant.consume("difrent")
+        XCTAssertNil(distant.consume(" "))
+    }
+
+    func testDoesNotDictionaryCorrectIdentifiersWithMixedCase() {
+        var engine = FastCorrectionEngine(candidateProvider: { _ in ["reflect"] })
+        engine.synchronize(leftContext: "Use ")
+        _ = engine.consume("ReflectIQ")
+        XCTAssertNil(engine.consume(" "))
+    }
+
     func testCapitalisesFirstWordInEmptyDocument() {
         var engine = FastCorrectionEngine()
         engine.synchronize(leftContext: "")

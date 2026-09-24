@@ -12,7 +12,7 @@ private struct CorrectionLedger {
 
 @objc(CappyInputController)
 final class CappyInputController: IMKInputController {
-    private var engine = FastCorrectionEngine()
+    private var engine = FastCorrectionEngine(candidateProvider: NativeSpellingCandidates.suggestions)
     private var recentCorrection: CorrectionLedger?
     private var expectedCaretLocation: Int?
     private var needsContextSync = true
@@ -168,5 +168,48 @@ final class CappyInputController: IMKInputController {
         recentCorrection = nil
         expectedCaretLocation = nil
         needsContextSync = true
+    }
+}
+
+enum NativeSpellingCandidates {
+    private static let cache = NSCache<NSString, NSArray>()
+
+    static func prepare() {
+        _ = NSSpellChecker.shared.checkSpelling(
+            of: "cappy",
+            startingAt: 0,
+            language: "en_GB",
+            wrap: false,
+            inSpellDocumentWithTag: 0,
+            wordCount: nil
+        )
+    }
+
+    static func suggestions(for word: String) -> [String] {
+        if let cached = cache.object(forKey: word as NSString) as? [String] {
+            return cached
+        }
+        let checker = NSSpellChecker.shared
+        let range = NSRange(location: 0, length: (word as NSString).length)
+        let misspelling = checker.checkSpelling(
+            of: word,
+            startingAt: 0,
+            language: "en_GB",
+            wrap: false,
+            inSpellDocumentWithTag: 0,
+            wordCount: nil
+        )
+        guard misspelling == range else {
+            cache.setObject([] as NSArray, forKey: word as NSString)
+            return []
+        }
+        let suggestions = checker.guesses(
+            forWordRange: range,
+            in: word,
+            language: "en_GB",
+            inSpellDocumentWithTag: 0
+        ) ?? []
+        cache.setObject(suggestions as NSArray, forKey: word as NSString)
+        return suggestions
     }
 }

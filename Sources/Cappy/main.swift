@@ -15,4 +15,7 @@ private let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.efekoy.input
 // IMKServer must live for the lifetime of the process. It creates one
 // CappyInputController for each client input session.
 let inputMethodServer = IMKServer(name: connectionName, bundleIdentifier: bundleIdentifier)
+DispatchQueue.main.async {
+    NativeSpellingCandidates.prepare()
+}
 NSApplication.shared.run()

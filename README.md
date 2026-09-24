@@ -10,6 +10,7 @@ This phase contains no neural model, Core ML, Accessibility fallback, event tap,
 - Ordinary text is inserted immediately.
 - The correction engine retains only the active word plus sentence-boundary state. It reads at most 96 UTF-16 units of left context when a client session starts.
 - High-confidence spelling corrections include `definately` → `definitely`, `welocme` → `welcome`, `teh`/`tge`/`yhe` → `the`, and a small extensible common-typo table.
+- Unknown words are checked against macOS's offline British English dictionary. Cappy accepts only a top-ranked single insertion, deletion, adjacent transposition, or nearby-key substitution.
 - High-confidence missing apostrophes such as `dont` → `don't`, `cant` → `can't`, and `youre` → `you're` are corrected without a model.
 - A lowercase first word is capitalised at the start of a document or after `.`, `!`, `?`, or a newline.
 - A replacement is applied only when the client still exposes the exact expected source range and a collapsed caret.
@@ -76,4 +77,4 @@ The uninstall target moves the installed app to the Trash.
 
 Correction currently triggers on whitespace, so the active word remains unchanged until Space, Return, or another whitespace character is typed. This avoids modifying domain and path segments before the complete safety classifier exists. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
 
-The next engine milestone is dictionary lookup with bounded Damerau–Levenshtein candidate generation, keyboard-neighbour costs, duplicate/missing letter handling, and conservative confidence classes. Contextual statistics and Core ML remain later phases.
+The next engine milestone is broader safety classification and contextual scoring for valid-word errors such as `Your going home`. Personalisation, statistical context, and Core ML remain later phases.
