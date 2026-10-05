@@ -19,6 +19,8 @@ private struct CorrectionLedger {
 final class CappyInputController: IMKInputController {
     private let session = CorrectionSession()
     private let overlay = CorrectionOverlayController()
+    private var eventRouter = CorrectionEventRouter()
+    private var reportedInputPath = false
 
     private func connectOverlay() {
         session.onHide = { [weak self] in self?.overlay.hide() }
@@ -39,17 +41,25 @@ final class CappyInputController: IMKInputController {
     }
 
     override func activateServer(_ sender: Any!) {
+        reportedInputPath = false
+        eventRouter.reset()
         connectOverlay()
         ProtectedWords.shared.reload()
         session.invalidateSession()
-        session.correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
-            bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
-        )
+        // Activation may occur while the input-source menu is frontmost. The
+        // IMK client identifies the actual app receiving the keyboard event.
+        let bundleIdentifier = (sender as? any IMKTextInput)?.bundleIdentifier()
+            ?? client()?.bundleIdentifier()
+            ?? NSWorkspace.shared.frontmostApplication?.bundleIdentifier
+        session.correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(bundleIdentifier: bundleIdentifier)
+        session.usesNativeTyping = InputClientPolicy.usesNativeTyping(bundleIdentifier: bundleIdentifier)
+        Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "client").debug("Client \(bundleIdentifier ?? "unknown", privacy: .public), native typing \(self.session.usesNativeTyping, privacy: .public)")
         ManualCorrectionShortcut.shared.activate(self)
         super.activateServer(sender)
     }
 
     override func deactivateServer(_ sender: Any!) {
+        eventRouter.reset()
         ManualCorrectionShortcut.shared.deactivate(self)
         session.finishSession()
         super.deactivateServer(sender)
@@ -80,10 +90,28 @@ final class CappyInputController: IMKInputController {
         PersonalisationSettingsController.shared.show()
     }
 
+    // Receive the original event before IMK's decoded keybinding layer. Returning
+    // false here forwards that event, including Chromium's native omnibox keys.
+    override func handle(_ event: NSEvent!, client sender: Any!) -> Bool {
+        if !reportedInputPath {
+            reportedInputPath = true
+            let identifier = (sender as? any IMKTextInput)?.bundleIdentifier() ?? "unknown"
+            Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "client").notice("Raw input callback: client \(identifier, privacy: .public), text present \(!(event?.characters?.isEmpty ?? true)), native typing \(self.session.usesNativeTyping)")
+        }
+        guard let event, let client = sender as? any IMKTextInput else { return false }
+        return eventRouter.handle(event, session: session, client: IMKCorrectionClient(client: client))
+    }
+
     override func inputText(_ string: String!, client sender: Any!) -> Bool {
+        if !reportedInputPath {
+            reportedInputPath = true
+            let identifier = (sender as? any IMKTextInput)?.bundleIdentifier() ?? "unknown"
+            Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "client").notice("Decoded input callback: client \(identifier, privacy: .public), text present \(!(string?.isEmpty ?? true)), native typing \(self.session.usesNativeTyping)")
+        }
         guard let string, !string.isEmpty, let client = sender as? any IMKTextInput else { return false }
         let adapter = IMKCorrectionClient(client: client)
         if string == "\t", session.hasSuggestion { return session.didCommand("insertTab:", client: adapter) }
+        if session.usesNativeTyping { return session.processNativeInput(string, client: adapter) }
         return session.processInput(string, client: adapter)
     }
 
@@ -160,7 +188,10 @@ final class CorrectionSession {
             phraseProvider: phraseCandidateProvider ?? ContextualPhraseRanker(frequencies: frequencyModel, provider: NativeSpellingCandidates.cachedSuggestions).candidates,
             personalScore: { candidate in
                 if personalization.shouldSuppress(original: candidate.source, replacement: candidate.replacement, context: candidate.contextSignature) { return -1 }
-                return personalization.adjustment(original: candidate.source, replacement: candidate.replacement, context: candidate.contextSignature)
+                // Ignoring a popup is not a request to stop capitalising the English pronoun.
+                // Explicit undo/rejection and protected words still override this rule.
+                return personalization.adjustment(original: candidate.source, replacement: candidate.replacement, context: candidate.contextSignature,
+                    includeIgnoredSuggestions: !(candidate.type == "case" && candidate.source == "i" && candidate.replacement == "I"))
             },
             observationProvider: { token in
                 let technical = token == token.uppercased() || !ContextualPhraseRanker.simple(token)
@@ -174,6 +205,7 @@ final class CorrectionSession {
     private var expectedCaretLocation: Int?
     private var needsContextSync = true
     var correctionsSuppressedForApp = false
+    var usesNativeTyping = false
 
     /// Explicit, bounded review of selected text or the paragraph before the caret.
     /// No clipboard, Accessibility access, or continuous document history.
@@ -254,7 +286,18 @@ final class CorrectionSession {
         personalization.flush()
     }
 
-    func processInput(_ string: String, client: any CorrectionClient, commitsInput: Bool = true) -> Bool {
+    /// Chrome must insert its own ordinary key events. Query/replace only at
+    /// spaces, and always forward that original separator to the host afterwards.
+    /// An unsupported client therefore still receives every typed character.
+    func processNativeInput(_ string: String, client: any CorrectionClient) -> Bool {
+        acceptRecentCorrection()
+        invalidateSession()
+        guard string == " ", !correctionsSuppressedForApp else { return false }
+        return processInput(string, client: client, commitsInput: false, tracksForwardedBoundary: true)
+    }
+
+    func processInput(_ string: String, client: any CorrectionClient, commitsInput: Bool = true,
+                      tracksForwardedBoundary: Bool = false) -> Bool {
         manualCorrection = nil
         let inputReceived = ContinuousClock.now
         discardSuggestion(.suggestionIgnored)
@@ -313,7 +356,7 @@ final class CorrectionSession {
                 engine.locateCandidate(in: sourceRange)
                 // Replace the word and commit its separator in one transaction.
                 client.insertText(correction.replacement + (commitsInput ? correction.suffix : existingSuffix), replacementRange: replacementRange)
-                if !commitsInput {
+                if !commitsInput && !tracksForwardedBoundary {
                     invalidateSession()
                     return false
                 }
@@ -331,7 +374,7 @@ final class CorrectionSession {
                 )
                 expectedCaretLocation = expectedCaret
                 _ = onPresentation?(.corrected(correction), client)
-                return true
+                return commitsInput
             }
             invalidateSession()
         }
@@ -359,6 +402,7 @@ final class CorrectionSession {
             discardSuggestion(.suggestionRejected); onHide?(); return true
         }
         if command != "insertSpace:" { discardSuggestion(.suggestionIgnored) }
+        if command == "insertSpace:", usesNativeTyping { return processNativeInput(" ", client: client) }
         if command == "insertSpace:" {
             return processInput(" ", client: client)
         }
@@ -524,6 +568,13 @@ final class CorrectionSession {
     }
 }
 
+enum InputClientPolicy {
+    static func usesNativeTyping(bundleIdentifier: String?) -> Bool {
+        guard let bundleIdentifier else { return false }
+        return bundleIdentifier == "com.google.Chrome" || bundleIdentifier.hasPrefix("com.google.Chrome.")
+    }
+}
+
 private enum SafetyPolicy {
     private static let suppressedBundleIdentifiers: Set<String> = [
         "com.apple.Terminal",
@@ -682,5 +733,65 @@ enum ManualTextCorrection {
         guard ContinuousClock.now - start <= timeLimit else { return nil }
         output.removeLast() // synthetic boundary, never inserted into the document
         return Result(text: output, edits: edits)
+    }
+}
+
+/// Direct IMK event routing. Command shortcuts and native composition keep their
+/// original events; editing commands retain the existing session validation/undo.
+struct CorrectionEventRouter {
+    private var forwardsCompositionContinuation = false
+    mutating func reset() { forwardsCompositionContinuation = false }
+    mutating func handle(_ event: NSEvent, session: CorrectionSession, client: any CorrectionClient) -> Bool {
+        guard event.type == .keyDown else { return false }
+        guard !session.correctionsSuppressedForApp else {
+            reset(); session.invalidateSession(); return false
+        }
+        let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        if modifiers.contains(.command) {
+            reset()
+            if !modifiers.contains(.shift), !modifiers.contains(.option),
+               event.charactersIgnoringModifiers?.lowercased() == "z" {
+                return session.didCommand("undo:", client: client)
+            }
+            session.invalidateSession()
+            return false
+        }
+        if modifiers.contains(.control) {
+            reset(); session.invalidateSession(); return false
+        }
+        // Let AppKit interpret Option characters/dead keys, and their following
+        // text event, rather than inserting an uncomposed accent ourselves.
+        if modifiers.contains(.option) {
+            forwardsCompositionContinuation = true
+            session.invalidateSession()
+            return false
+        }
+        if forwardsCompositionContinuation {
+            reset(); session.invalidateSession(); return false
+        }
+        let command: String?
+        switch event.keyCode {
+        case 36, 76: command = "insertNewline:"
+        case 48: command = modifiers.contains(.shift) ? "insertBacktab:" : "insertTab:"
+        case 51: command = "deleteBackward:"
+        case 53: command = "cancelOperation:"
+        case 117: command = "deleteForward:"
+        case 123: command = "moveLeft:"
+        case 124: command = "moveRight:"
+        case 125: command = "moveDown:"
+        case 126: command = "moveUp:"
+        case 115: command = "moveToBeginningOfDocument:"
+        case 119: command = "moveToEndOfDocument:"
+        case 116: command = "pageUp:"
+        case 121: command = "pageDown:"
+        default: command = nil
+        }
+        if let command { return session.didCommand(command, client: client) }
+        guard let text = event.characters, !text.isEmpty,
+              !text.unicodeScalars.contains(where: { $0.value < 0x20 || (0xF700...0xF8FF).contains($0.value) }) else {
+            session.invalidateSession(); return false
+        }
+        if session.usesNativeTyping { return session.processNativeInput(text, client: client) }
+        return session.processInput(text, client: client)
     }
 }

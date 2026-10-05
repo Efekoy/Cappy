@@ -75,13 +75,13 @@ final class PersonalizationStore {
     }
     func recordAccepted(original: String, replacement: String) { record(.automaticAccepted, original: original, replacement: replacement) }
     func recordRejected(original: String, replacement: String) { record(.automaticUndone, original: original, replacement: replacement) }
-    func adjustment(original: String, replacement: String, context: String = "") -> Double {
+    func adjustment(original: String, replacement: String, context: String = "", includeIgnoredSuggestions: Bool = true) -> Double {
         let global = records[pairKey(original, replacement, "")]
         let contextual = context.isEmpty ? nil : records[pairKey(original, replacement, context)]
         return max(-0.6, min(0.20, [global, contextual].compactMap { $0 }.reduce(0) { sum, record in
             let accepted = record.automaticAccepted + record.suggestionsAccepted
             let positive = accepted >= 6 ? min(0.20, Double(accepted - 5) * 0.02) : 0
-            let negative = Double(record.automaticUndone) * 0.09 + Double(record.suggestionsRejected) * 0.065 + Double(record.suggestionsIgnored) * 0.008
+            let negative = Double(record.automaticUndone) * 0.09 + Double(record.suggestionsRejected) * 0.065 + (includeIgnoredSuggestions ? Double(record.suggestionsIgnored) * 0.008 : 0)
             return sum + positive - negative
         }))
     }

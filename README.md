@@ -46,7 +46,7 @@ make install
 
 On the first installation, open **System Settings → Keyboard → Text Input → Edit**, press **+**, find **Cappy** under English, and add it. If the new source is not visible yet, log out and back in once so macOS rebuilds its input-method registry. Select Cappy from the Input menu in the menu bar. If the Input menu is hidden, enable **Show Input menu in menu bar** in the same Text Input sheet.
 
-Later development updates do not require a logout or restart. `make install` replaces the installed bundle, stops the old Cappy process, re-registers the input source, and refreshes the per-user text-input services. Cappy launches the updated executable on the next key event while retaining the same input-source selection.
+`make install` replaces the installed bundle, stops the old Cappy process, re-registers the input source, and refreshes the input-menu artwork. It preserves the InputMethodKit connection broker. Cappy launches the updated executable on the next key event while retaining the same input-source selection. If an already-running app stops receiving input after an update, save unfinished drafts and fully quit and reopen that app to recreate its input connection; switching input sources alone may not reset it.
 
 Open TextEdit and type each line, including the trailing space:
 
@@ -98,6 +98,8 @@ The uninstall target moves the installed app to the Trash.
 ## Current limits
 
 Correction triggers on spaces or a Tab command, so the active word remains unchanged until a word boundary. This avoids modifying domain and path segments before the whole token can be classified. Clients that do not expose a valid selected range and bounded attributed substring receive normal passthrough but no correction. Integration tests cover native replacement-caret behavior, delayed post-insertion caret queries, Space/Return/Tab commands, undo, and unavailable document text. Real keyboard compatibility still needs hands-on verification in TextEdit or Notes, Safari, Chrome, and Discord after the input source is enabled.
+
+Chrome receives its original character events directly; Cappy reads bounded context and validates corrections at spaces, rather than inserting each ordinary character through IMK. Tab still accepts an active suggestion and otherwise passes through. Shortcuts, navigation, excluded applications and Option composition retain their native events. Passive suggestion expiry does not demote `i` → `I`; explicit undo, rejection and protection still take precedence.
 
 The Core ML model still covers six constrained grammar edits. The new corpus phrase ranker is deliberately conservative, not a general grammar rewriter. The evaluation currently leaves `I dint no that`, `I wan tot go`, `Please agre` and `Please rember` unresolved. An 88-case regression dataset reports no incorrect automatic edits, but cannot establish natural-writing accuracy or calibrate confidence. Native dictionary cold start, client geometry and real keyboard behavior vary across applications; see the implementation report for the exact verified scope.
 

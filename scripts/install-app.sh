@@ -30,6 +30,8 @@ killall TextInputMenuAgent 2>/dev/null || true
 # The Fn switcher and inline cursor badge have separate artwork caches.
 killall TextInputSwitcher 2>/dev/null || true
 killall CursorUIViewService 2>/dev/null || true
-killall imklaunchagent 2>/dev/null || true
+# Keep the IMK connection broker running. Killing it during an update invalidates
+# connections held by already-running clients; switching input sources alone may
+# not recreate those connections. Only Cappy itself needs to restart.
 
 echo "Installed and refreshed $installed_app"
