@@ -102,3 +102,12 @@ Correction triggers on spaces or a Tab command, so the active word remains uncha
 The Core ML model still covers six constrained grammar edits. The new corpus phrase ranker is deliberately conservative, not a general grammar rewriter. The evaluation currently leaves `I dint no that`, `I wan tot go`, `Please agre` and `Please rember` unresolved. An 88-case regression dataset reports no incorrect automatic edits, but cannot establish natural-writing accuracy or calibrate confidence. Native dictionary cold start, client geometry and real keyboard behavior vary across applications; see the implementation report for the exact verified scope.
 
 Open settings directly from a development bundle with `dist/Cappy.app/Contents/MacOS/Cappy --settings`.
+
+
+## Correct written text on demand
+
+With Cappy selected as your input source, press **⌘⌥⇧C** (Command–Option–Shift–C), or choose **Correct Written Text** in Cappy’s input menu. Cappy corrects selected text; without a selection, it reviews the current paragraph **before the caret**. Put the caret at the end to review the whole paragraph, or select a passage spanning multiple paragraphs.
+
+The command uses the existing local spelling and contextual phrase pipeline. It applies only candidates meeting the automatic confidence threshold (0.98), respects protected words and excluded apps, and preserves separators, punctuation, emoji and following text. It is not a general-purpose grammar or style rewrite. No Accessibility permission, clipboard access, network request, or saved paragraph is involved.
+
+A temporary caret popup reports the correction count and offers **Undo**. Immediate standard Undo is also handled when the client forwards that command to Cappy; ordinary native undo remains client-dependent. Undo restores the exact original text, with the caret at the end of the restored range. Further typing/navigation ends Cappy’s batch undo window. Fields that do not expose document text through InputMethodKit cannot use this command. The bounded review accepts up to 4,096 UTF-16 units and abandons the entire result after a one-second budget; a single native dictionary query cannot be interrupted mid-call. If another app reserves the shortcut, use the input-menu action.

@@ -55,7 +55,7 @@ struct FastCorrectionEngine {
     private var recentWords: [String] = []
     private let phraseProvider: (([String]) -> [CorrectionCandidate])?
     private let personalScore: (CorrectionCandidate) -> Double
-    private let observationProvider: (String) -> Void
+    private var observationProvider: (String) -> Void
     private(set) var suggestion: FastCorrection?
     private(set) var lastCandidate: CorrectionCandidate?
 
@@ -78,6 +78,8 @@ struct FastCorrectionEngine {
         self.personalScore = personalScore
         self.observationProvider = observationProvider
     }
+
+    mutating func disableObservations() { observationProvider = { _ in } }
 
     mutating func locateCandidate(in range: NSRange) { lastCandidate?.sourceRange = range }
 

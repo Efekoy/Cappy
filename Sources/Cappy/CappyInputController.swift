@@ -1,5 +1,7 @@
 import AppKit
 import InputMethodKit
+import Carbon
+import os
 
 private struct CorrectionLedger {
     let generation: UInt64
@@ -26,9 +28,10 @@ final class CappyInputController: IMKInputController {
                 primary: { [weak self] in
                     guard let self else { return }
                     switch presentation {
-                    case .corrected: _ = self.session.didCommand("undo:", client: client)
+                    case .corrected, .manualCorrected: _ = self.session.didCommand("undo:", client: client)
                     case .suggestion: _ = self.session.acceptSuggestion(in: client)
                     case .keep: _ = self.session.alwaysKeep()
+                    case .status: break
                     }
                 }, secondary: { [weak self] in self?.session.dismissPresentation() },
                 expired: { [weak self] in self?.session.expirePresentation() })
@@ -42,10 +45,12 @@ final class CappyInputController: IMKInputController {
         session.correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
             bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         )
+        ManualCorrectionShortcut.shared.activate(self)
         super.activateServer(sender)
     }
 
     override func deactivateServer(_ sender: Any!) {
+        ManualCorrectionShortcut.shared.deactivate(self)
         session.finishSession()
         super.deactivateServer(sender)
     }
@@ -58,8 +63,17 @@ final class CappyInputController: IMKInputController {
         let menu = NSMenu(title: "Cappy")
         let item = NSMenuItem(title: "Cappy Settings…", action: #selector(editProtectedWords(_:)), keyEquivalent: "")
         item.target = self
+        let correct = NSMenuItem(title: "Correct Written Text (⌘⌥⇧C)", action: #selector(correctWrittenText(_:)), keyEquivalent: "")
+        correct.target = self
+        menu.addItem(correct)
         menu.addItem(item)
         return menu
+    }
+
+    @objc func correctWrittenText(_ sender: Any?) {
+        Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "manual").debug("Manual correction invoked")
+        guard let client = client() else { return }
+        _ = session.correctWrittenText(in: IMKCorrectionClient(client: client))
     }
 
     @objc private func editProtectedWords(_ sender: Any?) {
@@ -88,13 +102,21 @@ protocol CorrectionClient {
     func attributedSubstring(from range: NSRange) -> NSAttributedString?
     func insertText(_ string: String, replacementRange: NSRange)
     func caretRect() -> NSRect?
+    func insertAttributedText(_ text: NSAttributedString, replacementRange: NSRange)
 }
-extension CorrectionClient { func caretRect() -> NSRect? { nil } }
+extension CorrectionClient {
+    func caretRect() -> NSRect? { nil }
+    func insertAttributedText(_ text: NSAttributedString, replacementRange: NSRange) {
+        insertText(text.string, replacementRange: replacementRange)
+    }
+}
 
 enum SessionPresentation {
     case corrected(FastCorrection)
     case suggestion(FastCorrection)
     case keep(String)
+    case manualCorrected(Int)
+    case status(String)
 }
 
 
@@ -103,6 +125,7 @@ private struct IMKCorrectionClient: CorrectionClient {
     func selectedRange() -> NSRange { client.selectedRange() }
     func attributedSubstring(from range: NSRange) -> NSAttributedString? { client.attributedSubstring(from: range) }
     func insertText(_ string: String, replacementRange: NSRange) { client.insertText(string, replacementRange: replacementRange) }
+    func insertAttributedText(_ text: NSAttributedString, replacementRange: NSRange) { client.insertText(text, replacementRange: replacementRange) }
     func caretRect() -> NSRect? {
         var rect = NSRect.zero
         _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
@@ -146,10 +169,84 @@ final class CorrectionSession {
             }
         )
     }
+    private var manualCorrection: (range: NSRange, original: NSAttributedString, replacement: NSAttributedString, caret: Int)?
     private var recentCorrection: CorrectionLedger?
     private var expectedCaretLocation: Int?
     private var needsContextSync = true
     var correctionsSuppressedForApp = false
+
+    /// Explicit, bounded review of selected text or the paragraph before the caret.
+    /// No clipboard, Accessibility access, or continuous document history.
+    @discardableResult func correctWrittenText(in client: any CorrectionClient) -> Bool {
+        acceptRecentCorrection()
+        invalidateSession()
+        func status(_ message: String) -> Bool {
+            _ = onPresentation?(.status(message), client)
+            return false
+        }
+        guard !correctionsSuppressedForApp else { return status("Cappy is disabled in this app") }
+        let selection = client.selectedRange()
+        guard selection.location != NSNotFound, selection.location >= 0, selection.length >= 0,
+              selection.location <= Int.max - selection.length,
+              selection.length <= ManualTextCorrection.maximumUTF16Length else {
+            return status("Select up to 4,096 characters to correct")
+        }
+        var range = selection
+        if selection.length == 0 {
+            let length = min(selection.location, ManualTextCorrection.maximumUTF16Length)
+            range = NSRange(location: selection.location - length, length: length)
+        }
+        guard let captured = client.attributedSubstring(from: range), captured.length == range.length else {
+            return status("This field does not expose text to Cappy")
+        }
+        let snapshot = captured.string
+        var attributedSource = NSAttributedString(attributedString: captured)
+        var source = snapshot
+        if selection.length == 0 {
+            let string = snapshot as NSString
+            let newline = string.rangeOfCharacter(from: .newlines, options: .backwards)
+            if newline.location != NSNotFound {
+                let offset = NSMaxRange(newline)
+                source = string.substring(from: offset)
+                attributedSource = attributedSource.attributedSubstring(from: NSRange(location: offset, length: string.length - offset))
+                range = NSRange(location: range.location + offset, length: string.length - offset)
+            } else if range.location > 0 {
+                return status("Select a shorter passage to correct")
+            }
+        }
+        guard !source.isEmpty else { return status("No text to correct") }
+        guard let result = ManualTextCorrection.correct(source, using: engine) else {
+            return status("Review timed out; select a shorter passage")
+        }
+        guard result.text != source else { return status("No confident corrections found") }
+        // Re-read after all dictionary/model work, including a final selection check.
+        guard client.selectedRange() == selection,
+              client.attributedSubstring(from: range)?.isEqual(to: attributedSource) == true,
+              client.selectedRange() == selection else { return status("Text changed; correction cancelled") }
+        let corrected = NSMutableAttributedString(attributedString: attributedSource)
+        for edit in result.edits {
+            // NSString replacement inherits the original span’s attributes.
+            corrected.replaceCharacters(in: edit.range, with: edit.replacement)
+        }
+        guard corrected.string == result.text else { return status("Correction cancelled") }
+        client.insertAttributedText(corrected, replacementRange: range)
+        let caret = range.location + (result.text as NSString).length
+        manualCorrection = (NSRange(location: range.location, length: (result.text as NSString).length), attributedSource, NSAttributedString(attributedString: corrected), caret)
+        expectedCaretLocation = caret
+        _ = onPresentation?(.manualCorrected(result.count), client)
+        return true
+    }
+
+    private func restoreManualCorrection(in client: any CorrectionClient) -> Bool {
+        guard let correction = manualCorrection else { return false }
+        let selection = client.selectedRange()
+        guard selection == NSRange(location: correction.caret, length: 0),
+              client.attributedSubstring(from: correction.range)?.isEqual(to: correction.replacement) == true,
+              client.selectedRange() == selection else { invalidateSession(); return false }
+        client.insertAttributedText(correction.original, replacementRange: correction.range)
+        invalidateSession()
+        return true
+    }
 
     func finishSession() {
         acceptRecentCorrection()
@@ -158,6 +255,7 @@ final class CorrectionSession {
     }
 
     func processInput(_ string: String, client: any CorrectionClient, commitsInput: Bool = true) -> Bool {
+        manualCorrection = nil
         let inputReceived = ContinuousClock.now
         discardSuggestion(.suggestionIgnored)
         undoneSource = nil
@@ -254,6 +352,8 @@ final class CorrectionSession {
     }
 
     func didCommand(_ command: String, client: any CorrectionClient) -> Bool {
+        if command == "undo:", restoreManualCorrection(in: client) { return true }
+        manualCorrection = nil
         if command == "insertTab:", hasSuggestion { return acceptSuggestion(in: client) }
         if command == "cancelOperation:", hasSuggestion {
             discardSuggestion(.suggestionRejected); onHide?(); return true
@@ -413,6 +513,7 @@ final class CorrectionSession {
     }
 
     func invalidateSession() {
+        manualCorrection = nil
         discardSuggestion(.suggestionIgnored)
         undoneSource = nil
         onHide?()
@@ -510,5 +611,76 @@ enum NativeSpellingCandidates {
         }
         cache.setObject(suggestions as NSArray, forKey: word as NSString)
         return suggestions
+    }
+}
+
+/// Register only while a Cappy client is active. Carbon hotkeys do not require
+/// Accessibility permission and leave the existing IMK input routing untouched.
+private final class ManualCorrectionShortcut {
+    static let shared = ManualCorrectionShortcut()
+    private weak var activeController: CappyInputController?
+    private var hotKey: EventHotKeyRef?
+    private var handler: EventHandlerRef?
+    private let signature: OSType = 0x43617079 // Capy
+
+    private init() {
+        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        InstallEventHandler(GetEventDispatcherTarget(), { _, event, _ in
+            guard let event else { return OSStatus(eventNotHandledErr) }
+            var identifier = EventHotKeyID()
+            let result = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                MemoryLayout<EventHotKeyID>.size, nil, &identifier)
+            guard result == noErr, identifier.signature == ManualCorrectionShortcut.shared.signature, identifier.id == 1 else {
+                return OSStatus(eventNotHandledErr)
+            }
+            ManualCorrectionShortcut.shared.activeController?.correctWrittenText(nil)
+            return noErr
+        }, 1, &event, nil, &handler)
+    }
+    func activate(_ controller: CappyInputController) {
+        activeController = controller
+        guard handler != nil, hotKey == nil else { return }
+        let result = RegisterEventHotKey(UInt32(kVK_ANSI_C), UInt32(cmdKey | optionKey | shiftKey),
+            EventHotKeyID(signature: signature, id: 1), GetEventDispatcherTarget(), OptionBits(kEventHotKeyExclusive), &hotKey)
+        Logger(subsystem: "com.efekoy.inputmethod.Cappy", category: "manual").debug("Shortcut registration status \(result, privacy: .public)")
+        if result != noErr { NSLog("Cappy: manual correction shortcut unavailable (%d); use the input menu", result) }
+    }
+    func deactivate(_ controller: CappyInputController) {
+        guard activeController === controller else { return }
+        activeController = nil
+        if let hotKey { UnregisterEventHotKey(hotKey) }
+        hotKey = nil
+    }
+}
+
+/// Runs the existing high-confidence pipeline against an in-memory snapshot.
+/// Each phrase replacement is verified against the snapshot, preserving every
+/// separator. An artificial final boundary is removed before returning.
+enum ManualTextCorrection {
+    static let maximumUTF16Length = 4096
+    struct Edit { let range: NSRange; let replacement: String }
+    struct Result { let text: String; let edits: [Edit]; var count: Int { edits.count } }
+    static func correct(_ source: String, using originalEngine: FastCorrectionEngine,
+                        timeLimit: Duration = .seconds(1)) -> Result? {
+        guard (source as NSString).length <= maximumUTF16Length else { return nil }
+        var engine = originalEngine
+        engine.invalidate()
+        engine.disableObservations()
+        var output = ""
+        var edits: [Edit] = []
+        let start = ContinuousClock.now
+        for character in source + " " {
+            if ContinuousClock.now - start > timeLimit { return nil }
+            output.append(character)
+            guard let correction = engine.consume(String(character)) else { continue }
+            let expected = correction.original + correction.suffix
+            guard output.hasSuffix(expected) else { engine.invalidate(); continue }
+            edits.append(Edit(range: NSRange(location: (output as NSString).length - (expected as NSString).length, length: correction.originalUTF16Length), replacement: correction.replacement))
+            output.removeLast(expected.count)
+            output += correction.replacement + correction.suffix
+        }
+        guard ContinuousClock.now - start <= timeLimit else { return nil }
+        output.removeLast() // synthetic boundary, never inserted into the document
+        return Result(text: output, edits: edits)
     }
 }

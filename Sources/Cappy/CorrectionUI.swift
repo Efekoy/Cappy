@@ -27,6 +27,10 @@ final class CorrectionOverlayController: NSObject {
             message = "\(correction.original) → \(correction.replacement)"; action = "Undo"; dismiss = ""; duration = 2
         case .suggestion(let correction):
             message = "\(correction.original) → \(correction.replacement)"; action = "Tab"; dismiss = "×"; duration = 5
+        case .manualCorrected(let count):
+            message = "Corrected \(count) \(count == 1 ? "mistake" : "mistakes")"; action = "Undo"; dismiss = ""; duration = 5
+        case .status(let text):
+            message = text; action = "OK"; dismiss = ""; duration = 3
         case .keep(let source):
             message = "Keep “\(source)”\(source.contains(" ") ? " here" : " next time")?"
             action = source.contains(" ") ? "Always Keep Here" : "Always Keep"; dismiss = "Not Now"; duration = 5
@@ -147,6 +151,7 @@ private struct PersonalisationSettingsView: View {
                     }
                 }.tabItem { Text("Observed Vocabulary") }
             }
+            Text("Correct written text: ⌘⌥⇧C. Select text, or review the paragraph before the caret.").font(.caption).foregroundColor(.secondary)
             Text("Automatic ≥ 0.98 · Suggestion ≥ 0.75 · Weaker candidates stay untouched").font(.caption).foregroundColor(.secondary)
         }.padding(20).id(revision)
     }

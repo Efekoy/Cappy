@@ -1,0 +1,20 @@
+{
+  "date": "2026-10-05",
+  "configuration": "release",
+  "platform": "Apple Silicon macOS",
+  "benchmarks": [
+    {
+      "scenario": "deterministic 43-character passage",
+      "samples": 100,
+      "p50_ms": 0.044958,
+      "p95_ms": 0.048708
+    },
+    {
+      "scenario": "native cached 37-character passage",
+      "samples": 100,
+      "p50_ms": 0.221792,
+      "p95_ms": 0.243375
+    }
+  ],
+  "note": "Warm in-process measurements. Native review includes cached NSSpellChecker, corpus ranking, personalization, document validation, attributed replacement and the mock client. Cold dictionary queries can be slower; the explicit command has a one-second budget."
+}
