@@ -70,6 +70,33 @@ enum BenchmarkRunner {
         return result
     }
 
+    private static func benchmarkGeneralSpelling() -> [String: Any] {
+        let start = DispatchTime.now().uptimeNanoseconds
+        let frequencies = WordFrequencyModel.shared
+        let loadTime = milliseconds(start, DispatchTime.now().uptimeNanoseconds)
+        let samples = [
+            "Hello whta is yuor name? ",
+            "This is what its doign. ",
+            "it should be bale to do all corrections ",
+            "I have a bale of hay ",
+            "I heard form you yesterday ",
+            "visit whta.com and yuor@example.com "
+        ]
+        let predictions = samples.map { input -> [String: String] in
+            var engine = FastCorrectionEngine(contextualSpellingProvider: frequencies.replacement)
+            var output = ""
+            for character in input {
+                output.append(character)
+                if let correction = engine.consume(String(character)),
+                   let source = CorrectionRangePlanner.sourceRange(for: correction, selection: NSRange(location: (output as NSString).length, length: 0)) {
+                    output = (output as NSString).replacingCharacters(in: source, with: correction.replacement)
+                }
+            }
+            return ["input": input, "output": output]
+        }
+        return ["available": frequencies.isAvailable, "cold_load_ms": loadTime, "predictions": predictions]
+    }
+
     static func run() {
         let iterations = 10_000
         var durations: [Double] = []
@@ -88,6 +115,7 @@ enum BenchmarkRunner {
             "os": ProcessInfo.processInfo.operatingSystemVersionString,
             "automatic_threshold": ContextReranker.automaticThreshold,
             "deterministic": summary(durations).merging(["iterations": Double(iterations)]) { _, new in new },
+            "general_spelling": benchmarkGeneralSpelling(),
             "coreml": [
                 benchmarkModel(name: "cpu_only", computeUnits: .cpuOnly),
                 benchmarkModel(name: "cpu_and_neural_engine", computeUnits: .cpuAndNeuralEngine),

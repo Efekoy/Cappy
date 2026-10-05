@@ -54,13 +54,13 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(ordinary.consume(" ")?.replacement, "what about")
     }
 
-    func testKeepsUncertainOrInexactWordSplits() {
+    func testDoesNotPreferLowerRankedSplitOverDictionaryRecommendation() {
         var lowerRanked = FastCorrectionEngine(candidateProvider: { word in
             word == "inthe" ? ["into", "in the"] : []
         })
         lowerRanked.synchronize(leftContext: "Meet me ")
         _ = lowerRanked.consume("inthe")
-        XCTAssertNil(lowerRanked.consume(" "))
+        XCTAssertEqual(lowerRanked.consume(" ")?.replacement, "into")
 
         var inexact = FastCorrectionEngine(candidateProvider: { _ in ["can get"] })
         inexact.synchronize(leftContext: "I ")
@@ -72,6 +72,16 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "aggree").first, "agree")
     }
 
+    func testNativeDictionaryRestoresShouldntWithoutChangingLetters() {
+        XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "shouldnt").first, "shouldn't")
+        var engine = FastCorrectionEngine()
+        engine.synchronize(leftContext: "I ")
+        _ = engine.consume("shouldnt")
+        XCTAssertEqual(engine.consume(" "), FastCorrection(
+            original: "shouldnt", replacement: "shouldn't", suffix: " "
+        ))
+    }
+
     func testNativeDictionaryRanksRequestedMissingSpaceFirst() {
         XCTAssertEqual(NativeSpellingCandidates.suggestions(for: "can'tget").first, "can't get")
         var engine = FastCorrectionEngine(candidateProvider: NativeSpellingCandidates.suggestions)
@@ -80,7 +90,7 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(engine.consume(" ")?.replacement, "Can't get")
     }
 
-    func testKeepsAmbiguousGeneratedTranspositionAndMissingLetter() {
+    func testCorrectsGeneratedTranspositionAndMissingLetter() {
         var engine = FastCorrectionEngine(candidateProvider: { word in
             switch word {
             case "watre": return ["water", "ware"]
@@ -90,23 +100,23 @@ final class FastCorrectionEngineTests: XCTestCase {
         })
         engine.synchronize(leftContext: "Some ")
         _ = engine.consume("watre")
-        XCTAssertNil(engine.consume(" "))
+        XCTAssertEqual(engine.consume(" ")?.replacement, "water")
 
         _ = engine.consume("agre")
-        XCTAssertNil(engine.consume(" "))
+        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
     }
 
-    func testKeepsAmbiguousGeneratedKeyboardNeighbourSubstitution() {
+    func testCorrectsGeneratedKeyboardNeighbourSubstitution() {
         var engine = FastCorrectionEngine(candidateProvider: { $0 == "hellp" ? ["hello"] : [] })
         engine.synchronize(leftContext: "Say ")
         _ = engine.consume("hellp")
-        XCTAssertNil(engine.consume(" "))
+        XCTAssertEqual(engine.consume(" ")?.replacement, "hello")
     }
 
     func testRejectsDistantDictionarySuggestion() {
         var distant = FastCorrectionEngine(candidateProvider: { _ in ["different"] })
         distant.synchronize(leftContext: "A ")
-        _ = distant.consume("difrent")
+        _ = distant.consume("xyzword")
         XCTAssertNil(distant.consume(" "))
     }
 

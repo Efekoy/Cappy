@@ -95,3 +95,64 @@ final class ContextReranker {
         return Int(hash % UInt64(featureCount))
     }
 }
+
+/// A general language model of word frequencies and neighbouring word pairs.
+/// It contains no misspelling/replacement mappings and never learns typed text.
+final class WordFrequencyModel {
+    static let shared = WordFrequencyModel(url: Bundle.main.url(forResource: "LanguageFrequencies", withExtension: "tsv"))
+    private let logCounts: [String: Double]
+
+    init(url: URL?) {
+        var counts: [String: Double] = [:]
+        if let url, let data = try? String(contentsOf: url, encoding: .utf8) {
+            counts.reserveCapacity(350_000)
+            for line in data.split(separator: "\n") where !line.hasPrefix("#") {
+                let parts = line.split(separator: "\t")
+                if parts.count == 2, let value = Double(parts[1]) {
+                    counts[String(parts[0])] = value / 100
+                }
+            }
+        }
+        logCounts = counts
+    }
+
+    var isAvailable: Bool { !logCounts.isEmpty }
+
+    func replacement(history: [String], current: String) -> (original: String, replacement: String)? {
+        guard history.count >= 2, isAvailable else { return nil }
+        let left = history[history.count - 2].lowercased()
+        let observed = history[history.count - 1]
+        let word = observed.lowercased()
+        let right = current.lowercased()
+        guard word.count >= 4,
+              observed == word || observed == word.prefix(1).uppercased() + word.dropFirst(),
+              word.allSatisfy(\.isLetter), right.allSatisfy(\.isLetter),
+              let sourceFrequency = logCounts[word] else { return nil }
+
+        // Real-word substitutions are too ambiguous for two-word statistics.
+        // Consider generic adjacent-letter swaps, with strong evidence on BOTH sides.
+        // A corpus's missing pair is weak evidence, not proof of bad grammar.
+        let floor = log(1_000.0)
+        let sourceLeft = logCounts[left + " " + word] ?? floor
+        let sourceRight = (logCounts[word + " " + right] ?? floor) - sourceFrequency
+        var best: (word: String, gain: Double)?
+        for candidate in NativeSpellingCandidates.alternatives(for: word).prefix(8).map({ $0.lowercased() }) {
+            guard candidate != word, candidate.allSatisfy(\.isLetter),
+                  FastCorrectionEngine.editDistance(word, candidate) == 1,
+                  word.sorted() == candidate.sorted(),
+                  let frequency = logCounts[candidate],
+                  let candidateLeft = logCounts[left + " " + candidate],
+                  let candidateRight = logCounts[candidate + " " + right],
+                  candidateLeft >= log(50_000.0), candidateRight >= log(50_000.0) else { continue }
+            let leftGain = candidateLeft - sourceLeft
+            let rightGain = candidateRight - frequency - sourceRight
+            let gain = leftGain + rightGain
+            guard leftGain >= log(4.0), rightGain >= log(1.25), gain >= log(100.0) else { continue }
+            if best == nil || gain > best!.gain { best = (candidate, gain) }
+        }
+        guard let best else { return nil }
+        let corrected = observed.first?.isUppercase == true
+            ? best.word.prefix(1).uppercased() + best.word.dropFirst() : best.word
+        return (observed + " " + current, corrected + " " + current)
+    }
+}

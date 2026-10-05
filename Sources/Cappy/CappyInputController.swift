@@ -13,116 +13,194 @@ private struct CorrectionLedger {
 
 @objc(CappyInputController)
 final class CappyInputController: IMKInputController {
-    private var engine = FastCorrectionEngine(
-        candidateProvider: NativeSpellingCandidates.suggestions,
-        suppressionProvider: PersonalizationStore.shared.shouldSuppress,
-        rerankProvider: ContextReranker.shared.decision
-    )
-    private var recentCorrection: CorrectionLedger?
-    private var expectedCaretLocation: Int?
-    private var needsContextSync = true
-    private var correctionsSuppressedForApp = false
+    private let session = CorrectionSession()
 
     override func activateServer(_ sender: Any!) {
-        invalidateSession()
-        correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
+        ProtectedWords.shared.reload()
+        session.invalidateSession()
+        session.correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
             bundleIdentifier: NSWorkspace.shared.frontmostApplication?.bundleIdentifier
         )
         super.activateServer(sender)
     }
 
     override func deactivateServer(_ sender: Any!) {
-        acceptRecentCorrection()
-        invalidateSession()
+        session.finishSession()
         super.deactivateServer(sender)
     }
 
     override func commitComposition(_ sender: Any!) {
-        invalidateSession()
+        session.invalidateSession()
+    }
+
+    override func menu() -> NSMenu! {
+        let menu = NSMenu(title: "Cappy")
+        let item = NSMenuItem(title: "Edit words Cappy should keep…", action: #selector(editProtectedWords(_:)), keyEquivalent: "")
+        item.target = self
+        menu.addItem(item)
+        return menu
+    }
+
+    @objc private func editProtectedWords(_ sender: Any?) {
+        _ = ProtectedWords.shared
+        NSWorkspace.shared.open(ProtectedWords.userFileURL)
     }
 
     override func inputText(_ string: String!, client sender: Any!) -> Bool {
         guard let string, !string.isEmpty, let client = sender as? any IMKTextInput else { return false }
-        return processInput(string, client: client)
+        return session.processInput(string, client: IMKCorrectionClient(client: client))
     }
 
-    private func processInput(_ string: String, client: any IMKTextInput) -> Bool {
+    override func didCommand(by aSelector: Selector!, client sender: Any!) -> Bool {
+        guard let aSelector, let client = sender as? any IMKTextInput else {
+            session.invalidateSession()
+            return false
+        }
+        return session.didCommand(NSStringFromSelector(aSelector), client: IMKCorrectionClient(client: client))
+    }
+}
+
+/// The small document interface used by both IMK and the integration tests.
+protocol CorrectionClient {
+    func selectedRange() -> NSRange
+    func attributedSubstring(from range: NSRange) -> NSAttributedString?
+    func insertText(_ string: String, replacementRange: NSRange)
+}
+
+private struct IMKCorrectionClient: CorrectionClient {
+    let client: any IMKTextInput
+    func selectedRange() -> NSRange { client.selectedRange() }
+    func attributedSubstring(from range: NSRange) -> NSAttributedString? { client.attributedSubstring(from: range) }
+    func insertText(_ string: String, replacementRange: NSRange) { client.insertText(string, replacementRange: replacementRange) }
+}
+
+final class CorrectionSession {
+    private var engine: FastCorrectionEngine
+    private let personalization: PersonalizationStore
+
+    init(personalization: PersonalizationStore = .shared, frequencyModel: WordFrequencyModel = .shared, protectedWords: ProtectedWords = .shared) {
+        self.personalization = personalization
+        engine = FastCorrectionEngine(
+            candidateProvider: NativeSpellingCandidates.suggestions,
+            suppressionProvider: { original, replacement in
+                protectedWords.suppresses(original: original, replacement: replacement)
+                    || personalization.shouldSuppress(original: original, replacement: replacement)
+            },
+            rerankProvider: ContextReranker.shared.decision,
+            contextualSpellingProvider: frequencyModel.replacement
+        )
+    }
+    private var recentCorrection: CorrectionLedger?
+    private var expectedCaretLocation: Int?
+    private var needsContextSync = true
+    var correctionsSuppressedForApp = false
+
+    func finishSession() {
+        acceptRecentCorrection()
+        invalidateSession()
+    }
+
+    func processInput(_ string: String, client: any CorrectionClient, commitsInput: Bool = true) -> Bool {
         let inputReceived = ContinuousClock.now
 
+        // Enter can arrive as text instead of a command. Never change the
+        // message at a line break, since the app may submit it immediately.
+        if string.rangeOfCharacter(from: .newlines) != nil {
+            acceptRecentCorrection()
+            invalidateSession()
+            if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+            return commitsInput
+        }
+
         if correctionsSuppressedForApp {
-            client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
-            return true
+            if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+            return commitsInput
         }
 
         reconcileCaret(with: client)
         synchronizeContextIfNeeded(from: client)
         acceptRecentCorrection()
 
-        // Direct input is committed before any correction work. The deterministic
-        // Phase 1 decision is then measured and applied as one minimal replacement.
-        client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: NSNotFound))
+        // Read the document before writing. IMK clients may report a stale caret
+        // immediately after insertText, and replacing only the word after inserting
+        // its space would put the caret before that space in native text views.
+        let selection = client.selectedRange()
         let correction = engine.consume(string)
         PerformanceRecorder.shared.recordFastDecision(startedAt: inputReceived)
 
-        guard let correction else {
-            rememberCaret(from: client)
-            return true
+        if let correction,
+           selection.location != NSNotFound,
+           selection.length == 0 {
+            let projectedCaret = NSRange(location: selection.location + (string as NSString).length, length: 0)
+            if let sourceRange = CorrectionRangePlanner.sourceRange(for: correction, selection: projectedCaret),
+               correction.suffix.hasSuffix(string),
+               NSMaxRange(sourceRange) <= selection.location {
+                let existingSuffix = String(correction.suffix.dropLast(string.count))
+                let replacementRange = NSRange(location: sourceRange.location, length: sourceRange.length + (existingSuffix as NSString).length)
+                guard NSMaxRange(replacementRange) == selection.location,
+                      text(in: replacementRange, from: client) == correction.original + existingSuffix else {
+                    invalidateSession()
+                    if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+                    return commitsInput
+                }
+                // Replace the word and commit its separator in one transaction.
+                client.insertText(correction.replacement + (commitsInput ? correction.suffix : existingSuffix), replacementRange: replacementRange)
+                if !commitsInput {
+                    invalidateSession()
+                    return false
+                }
+                PerformanceRecorder.shared.recordReplacement(startedAt: inputReceived)
+                let expectedCaret = sourceRange.location + correction.replacementUTF16Length + correction.suffixUTF16Length
+                recentCorrection = CorrectionLedger(
+                    generation: engine.generation,
+                    range: CorrectionRangePlanner.undoRange(for: correction, sourceRange: sourceRange),
+                    original: correction.original,
+                    correctedText: correction.replacement + correction.suffix,
+                    replacement: correction.replacement,
+                    suffix: correction.suffix,
+                    expectedCaretLocation: expectedCaret
+                )
+                expectedCaretLocation = expectedCaret
+                return true
+            }
+            invalidateSession()
         }
 
-        apply(correction, to: client, inputReceived: inputReceived)
+        guard commitsInput else { return false }
+        client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0))
+        expectedCaretLocation = selection.location == NSNotFound ? nil : selection.location + (string as NSString).length
         return true
     }
 
-    override func didCommand(by aSelector: Selector!, client sender: Any!) -> Bool {
-        guard let client = sender as? any IMKTextInput else {
+    func didCommand(_ command: String, client: any CorrectionClient) -> Bool {
+        if command == "insertSpace:" {
+            return processInput(" ", client: client)
+        }
+        if ["insertNewline:", "insertNewlineIgnoringFieldEditor:", "insertLineBreak:", "insertParagraphSeparator:"].contains(command) {
+            // Let the app handle Enter without applying an unchecked correction.
+            acceptRecentCorrection()
             invalidateSession()
             return false
         }
-
-        let command = NSStringFromSelector(aSelector)
+        if ["insertTab:", "insertBacktab:"].contains(command) {
+            // Tab may move focus. Correct the completed word, then pass it on.
+            _ = processInput("\t", client: client, commitsInput: false)
+            acceptRecentCorrection()
+            invalidateSession()
+            return false
+        }
         if command == "deleteBackward:", restoreRecentCorrection(in: client, removingSuffix: true) {
             return true
         }
         if command == "undo:", restoreRecentCorrection(in: client, removingSuffix: false) {
             return true
         }
-
         acceptRecentCorrection()
         invalidateSession()
         return false
     }
 
-    private func apply(
-        _ correction: FastCorrection,
-        to client: any IMKTextInput,
-        inputReceived: ContinuousClock.Instant
-    ) {
-        let selection = client.selectedRange()
-        guard let sourceRange = CorrectionRangePlanner.sourceRange(for: correction, selection: selection) else {
-            invalidateSession()
-            return
-        }
-        guard text(in: sourceRange, from: client) == correction.original else {
-            invalidateSession()
-            return
-        }
-
-        client.insertText(correction.replacement, replacementRange: sourceRange)
-        PerformanceRecorder.shared.recordReplacement(startedAt: inputReceived)
-        let expectedCaret = sourceRange.location + correction.replacementUTF16Length + correction.suffixUTF16Length
-        recentCorrection = CorrectionLedger(
-            generation: engine.generation,
-            range: CorrectionRangePlanner.undoRange(for: correction, sourceRange: sourceRange),
-            original: correction.original,
-            correctedText: correction.replacement + correction.suffix,
-            replacement: correction.replacement,
-            suffix: correction.suffix,
-            expectedCaretLocation: expectedCaret
-        )
-        expectedCaretLocation = expectedCaret
-    }
-
-    private func restoreRecentCorrection(in client: any IMKTextInput, removingSuffix: Bool) -> Bool {
+    private func restoreRecentCorrection(in client: any CorrectionClient, removingSuffix: Bool) -> Bool {
         guard let correction = recentCorrection,
               correction.generation == engine.generation else { return false }
         let selection = client.selectedRange()
@@ -133,9 +211,9 @@ final class CappyInputController: IMKInputController {
             return false
         }
 
-        let restored = correction.original + (removingSuffix ? "" : correction.suffix)
+        let restored = correction.original + (removingSuffix ? String(correction.suffix.dropLast()) : correction.suffix)
         client.insertText(restored, replacementRange: correction.range)
-        PersonalizationStore.shared.recordRejected(
+        personalization.recordRejected(
             original: correction.original,
             replacement: correction.replacement
         )
@@ -147,14 +225,14 @@ final class CappyInputController: IMKInputController {
 
     private func acceptRecentCorrection() {
         guard let correction = recentCorrection else { return }
-        PersonalizationStore.shared.recordAccepted(
+        personalization.recordAccepted(
             original: correction.original,
             replacement: correction.replacement
         )
         recentCorrection = nil
     }
 
-    private func reconcileCaret(with client: any IMKTextInput) {
+    private func reconcileCaret(with client: any CorrectionClient) {
         guard let expectedCaretLocation else { return }
         let current = client.selectedRange()
         if current.location != NSNotFound,
@@ -163,12 +241,7 @@ final class CappyInputController: IMKInputController {
         }
     }
 
-    private func rememberCaret(from client: any IMKTextInput) {
-        let selection = client.selectedRange()
-        expectedCaretLocation = selection.location == NSNotFound || selection.length != 0 ? nil : selection.location
-    }
-
-    private func synchronizeContextIfNeeded(from client: any IMKTextInput) {
+    private func synchronizeContextIfNeeded(from client: any CorrectionClient) {
         guard needsContextSync else { return }
         needsContextSync = false
 
@@ -187,14 +260,14 @@ final class CappyInputController: IMKInputController {
         }
     }
 
-    private func text(in range: NSRange, from client: any IMKTextInput) -> String? {
+    private func text(in range: NSRange, from client: any CorrectionClient) -> String? {
         guard range.location != NSNotFound,
               let attributed = client.attributedSubstring(from: range),
               attributed.length == range.length else { return nil }
         return attributed.string
     }
 
-    private func invalidateSession() {
+    func invalidateSession() {
         engine.invalidate()
         recentCorrection = nil
         expectedCaretLocation = nil
@@ -217,7 +290,27 @@ private enum SafetyPolicy {
 }
 
 enum NativeSpellingCandidates {
-    private static let cache = NSCache<NSString, NSArray>()
+    private static let cache: NSCache<NSString, NSArray> = {
+        let cache = NSCache<NSString, NSArray>()
+        cache.countLimit = 512
+        return cache
+    }()
+
+    private static let alternativesCache: NSCache<NSString, NSArray> = {
+        let cache = NSCache<NSString, NSArray>()
+        cache.countLimit = 512
+        return cache
+    }()
+
+    static func alternatives(for word: String) -> [String] {
+        if let cached = alternativesCache.object(forKey: word as NSString) as? [String] { return cached }
+        let result = NSSpellChecker.shared.guesses(
+            forWordRange: NSRange(location: 0, length: (word as NSString).length),
+            in: word, language: "en_GB", inSpellDocumentWithTag: 0
+        ) ?? []
+        alternativesCache.setObject(result as NSArray, forKey: word as NSString)
+        return result
+    }
 
     static func prepare() {
         _ = NSSpellChecker.shared.checkSpelling(
@@ -236,24 +329,33 @@ enum NativeSpellingCandidates {
         }
         let checker = NSSpellChecker.shared
         let range = NSRange(location: 0, length: (word as NSString).length)
-        let misspelling = checker.checkSpelling(
-            of: word,
-            startingAt: 0,
-            language: "en_GB",
-            wrap: false,
-            inSpellDocumentWithTag: 0,
-            wordCount: nil
+        let preferred = checker.correction(
+            forWordRange: range, in: word, language: "en_GB", inSpellDocumentWithTag: 0
         )
-        guard misspelling == range else {
+        let misspelling = checker.checkSpelling(
+            of: word, startingAt: 0, language: "en_GB", wrap: false,
+            inSpellDocumentWithTag: 0, wordCount: nil
+        )
+        guard preferred != nil || misspelling == range else {
             cache.setObject([] as NSArray, forKey: word as NSString)
             return []
         }
-        let suggestions = checker.guesses(
-            forWordRange: range,
-            in: word,
-            language: "en_GB",
-            inSpellDocumentWithTag: 0
+        var suggestions = checker.guesses(
+            forWordRange: range, in: word, language: "en_GB", inSpellDocumentWithTag: 0
         ) ?? []
+        if let preferred {
+            suggestions.removeAll { $0 == preferred }
+            suggestions.insert(preferred, at: 0)
+        }
+        // Preserve all letters when the dictionary offers an apostrophe-only
+        // repair. This does not require a manually maintained contraction table.
+        if let contraction = suggestions.first(where: {
+            $0.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "’", with: "").lowercased() == word.lowercased()
+                && $0.contains(where: { $0 == "'" || $0 == "’" })
+        }) {
+            suggestions.removeAll { $0 == contraction }
+            suggestions.insert(contraction, at: 0)
+        }
         cache.setObject(suggestions as NSArray, forKey: word as NSString)
         return suggestions
     }

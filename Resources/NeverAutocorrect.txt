@@ -1,0 +1,5 @@
+# Never autocorrect these words (one word per line, case-insensitive).
+# The installer seeds your editable copy at:
+# ~/Library/Application Support/Cappy/never-autocorrect.txt
+# Changes to your copy apply automatically; no rebuild is needed.
+Cappy

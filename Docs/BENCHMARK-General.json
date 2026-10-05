@@ -1,0 +1,166 @@
+{
+  "automatic_threshold" : 0.94999999999999996,
+  "coreml" : [
+    {
+      "available" : true,
+      "cold_load_ms" : 13.290875,
+      "compute_units" : "cpu_only",
+      "iterations" : 1000,
+      "p50_ms" : 0.48345900000000003,
+      "p95_ms" : 0.52829099999999996,
+      "p99_ms" : 0.60254099999999999,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 89.580916999999999,
+      "compute_units" : "cpu_and_neural_engine",
+      "iterations" : 1000,
+      "p50_ms" : 0.48325000000000001,
+      "p95_ms" : 0.53329199999999999,
+      "p99_ms" : 0.58529100000000001,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 3.9134579999999999,
+      "compute_units" : "all",
+      "iterations" : 1000,
+      "p50_ms" : 0.483041,
+      "p95_ms" : 0.52929099999999996,
+      "p99_ms" : 0.62849999999999995,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    }
+  ],
+  "deterministic" : {
+    "iterations" : 10000,
+    "p50_ms" : 0.0080829999999999999,
+    "p95_ms" : 0.010874999999999999,
+    "p99_ms" : 0.017416000000000001
+  },
+  "general_spelling" : {
+    "available" : true,
+    "cold_load_ms" : 265.66591599999998,
+    "predictions" : [
+      {
+        "input" : "Hello whta is yuor name? ",
+        "output" : "Hello what is your name? "
+      },
+      {
+        "input" : "This is what its doign. ",
+        "output" : "This is what its doing. "
+      },
+      {
+        "input" : "it should be bale to do all corrections ",
+        "output" : "It should be able to do all corrections "
+      },
+      {
+        "input" : "I have a bale of hay ",
+        "output" : "I have a bale of hay "
+      },
+      {
+        "input" : "I heard form you yesterday ",
+        "output" : "I heard from you yesterday "
+      },
+      {
+        "input" : "visit whta.com and yuor@example.com ",
+        "output" : "Visit whta.com and yuor@example.com "
+      }
+    ]
+  },
+  "hardware" : "Mac14,2",
+  "os" : "Version 26.6.2 (Build 25G83)"
+}

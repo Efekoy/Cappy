@@ -27,6 +27,9 @@ xattr -cr "$installed_app"
 # These per-user services immediately reload input-method metadata and artwork.
 # The selected input method is launched again automatically on the next key event.
 killall TextInputMenuAgent 2>/dev/null || true
+# The Fn switcher and inline cursor badge have separate artwork caches.
+killall TextInputSwitcher 2>/dev/null || true
+killall CursorUIViewService 2>/dev/null || true
 killall imklaunchagent 2>/dev/null || true
 
 echo "Installed and refreshed $installed_app"

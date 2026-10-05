@@ -22,5 +22,6 @@ private let bundleIdentifier = Bundle.main.bundleIdentifier ?? "com.efekoy.input
 let inputMethodServer = IMKServer(name: connectionName, bundleIdentifier: bundleIdentifier)
 DispatchQueue.main.async {
     NativeSpellingCandidates.prepare()
+    _ = WordFrequencyModel.shared
 }
 NSApplication.shared.run()

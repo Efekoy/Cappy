@@ -35,50 +35,15 @@ enum CorrectionRangePlanner {
 struct FastCorrectionEngine {
     typealias CandidateProvider = (String) -> [String]
     typealias SuppressionProvider = (_ original: String, _ replacement: String) -> Bool
+    typealias ContextualSpellingProvider = (_ history: [String], _ current: String) -> (original: String, replacement: String)?
     typealias RerankProvider = (_ tokens: [String]) -> ContextualRerankDecision?
 
     static let maximumWordLength = 32
     static let maximumContextUTF16Length = 96
 
-    private static let commonReplacements: [String: String] = [
-        "aggree": "agree",
-        "alot": "a lot",
-        "definately": "definitely",
-        "helllo": "hello",
-        "i": "I",
-        "occured": "occurred",
-        "recieve": "receive",
-        "seperate": "separate",
-        "teh": "the",
-        "tge": "the",
-        "untill": "until",
-        "welocme": "welcome",
-        "yhe": "the"
-    ]
-
-    private static let apostropheReplacements: [String: String] = [
-        "arent": "aren't",
-        "cant": "can't",
-        "couldnt": "couldn't",
-        "didnt": "didn't",
-        "doesnt": "doesn't",
-        "dont": "don't",
-        "hadnt": "hadn't",
-        "hasnt": "hasn't",
-        "havent": "haven't",
-        "im": "I'm",
-        "isnt": "isn't",
-        "shouldnt": "shouldn't",
-        "theyre": "they're",
-        "wasnt": "wasn't",
-        "werent": "weren't",
-        "wont": "won't",
-        "wouldnt": "wouldn't",
-        "youre": "you're"
-    ]
-
     private(set) var currentWord = ""
     private(set) var generation: UInt64 = 0
+    private var pendingPunctuation = ""
     private var tokenIsProtected = false
     private var wordOverflowed = false
     private var wordBeganSentence = false
@@ -86,20 +51,24 @@ struct FastCorrectionEngine {
     private let candidateProvider: CandidateProvider
     private let suppressionProvider: SuppressionProvider
     private let rerankProvider: RerankProvider?
+    private let contextualSpellingProvider: ContextualSpellingProvider?
     private var recentWords: [String] = []
 
     init(
-        candidateProvider: @escaping CandidateProvider = { _ in [] },
+        candidateProvider: @escaping CandidateProvider = NativeSpellingCandidates.suggestions,
         suppressionProvider: @escaping SuppressionProvider = { _, _ in false },
-        rerankProvider: RerankProvider? = nil
+        rerankProvider: RerankProvider? = nil,
+        contextualSpellingProvider: ContextualSpellingProvider? = nil
     ) {
         self.candidateProvider = candidateProvider
         self.suppressionProvider = suppressionProvider
         self.rerankProvider = rerankProvider
+        self.contextualSpellingProvider = contextualSpellingProvider
     }
 
     mutating func invalidate() {
         currentWord.removeAll(keepingCapacity: true)
+        pendingPunctuation = ""
         tokenIsProtected = false
         wordOverflowed = false
         wordBeganSentence = false
@@ -110,6 +79,7 @@ struct FastCorrectionEngine {
 
     mutating func synchronize(leftContext: String?) {
         currentWord.removeAll(keepingCapacity: true)
+        pendingPunctuation = ""
         tokenIsProtected = false
         wordOverflowed = false
         wordBeganSentence = false
@@ -134,6 +104,11 @@ struct FastCorrectionEngine {
         for character in text {
             if Self.isWordLetter(character)
                 || (Self.isApostrophe(character) && !currentWord.isEmpty && currentWord.last.map(Self.isWordLetter) == true) {
+                if !pendingPunctuation.isEmpty {
+                    // A letter after punctuation is part of a domain/identifier.
+                    tokenIsProtected = true
+                    pendingPunctuation = ""
+                }
                 if currentWord.isEmpty {
                     wordBeganSentence = nextWordBeginsSentence
                 }
@@ -142,6 +117,14 @@ struct FastCorrectionEngine {
                     currentWord.removeAll(keepingCapacity: true)
                     wordOverflowed = true
                 }
+                continue
+            }
+
+            if ".,!?;:".contains(character), !currentWord.isEmpty,
+               !tokenIsProtected, !wordOverflowed, pendingPunctuation.count < 4 {
+                // Wait for a boundary before correcting: "whta? " is prose,
+                // while "whta.com" must remain an untouched domain.
+                pendingPunctuation.append(character)
                 continue
             }
 
@@ -154,7 +137,7 @@ struct FastCorrectionEngine {
                 correction = FastCorrection(
                     original: replacement.original,
                     replacement: replacement.replacement,
-                    suffix: String(character)
+                    suffix: pendingPunctuation + String(character)
                 )
             }
 
@@ -168,11 +151,12 @@ struct FastCorrectionEngine {
                     )
                 )
             }
-            if Self.endsSentence(character) {
+            if Self.endsSentence(character) || pendingPunctuation.contains(where: Self.endsSentence) {
                 nextWordBeginsSentence = true
                 recentWords.removeAll(keepingCapacity: true)
             }
             currentWord.removeAll(keepingCapacity: true)
+            pendingPunctuation = ""
             wordBeganSentence = false
             if character.isWhitespace {
                 tokenIsProtected = false
@@ -192,6 +176,11 @@ struct FastCorrectionEngine {
         }
 
         if let contextual = ContextualScorer.replacement(history: recentWords, current: word),
+           !suppressionProvider(contextual.original, contextual.replacement) {
+            return contextual
+        }
+
+        if let contextual = contextualSpellingProvider?(recentWords, word),
            !suppressionProvider(contextual.original, contextual.replacement) {
             return contextual
         }
@@ -256,10 +245,10 @@ struct FastCorrectionEngine {
     private func replacement(for word: String, atSentenceStart: Bool) -> String? {
         guard !word.isEmpty else { return nil }
         let lowercased = word.lowercased()
-        var replacement = Self.commonReplacements[lowercased] ?? Self.apostropheReplacements[lowercased]
+        var replacement: String? = lowercased == "i" ? "I" : nil
 
         if replacement == nil, Self.hasSimpleCasing(word) {
-            replacement = conservativeDictionaryReplacement(for: lowercased)
+            replacement = dictionaryReplacement(for: lowercased)
         }
 
         if replacement == nil, atSentenceStart, word.first?.isLowercase == true {
@@ -275,23 +264,45 @@ struct FastCorrectionEngine {
         return replacement == word ? nil : replacement
     }
 
-    private func conservativeDictionaryReplacement(for word: String) -> String? {
-        guard word.count >= 4,
+    private func dictionaryReplacement(for word: String) -> String? {
+        guard word.count >= 2,
               word.unicodeScalars.allSatisfy({
                   CharacterSet.lowercaseLetters.contains($0) || $0 == "'" || $0 == "’"
               }) else { return nil }
 
-        let suggestions = candidateProvider(word).prefix(5).map { $0.lowercased() }
-        if let first = suggestions.first,
-           let split = Self.highConfidenceMissingSpace(from: word, candidate: first) {
+        let suggestions = candidateProvider(word).prefix(8)
+        guard let first = suggestions.first else { return nil }
+        if let split = Self.highConfidenceMissingSpace(from: word, candidate: first) {
             return split
         }
-
-        guard word.count >= 7,
-              let first = suggestions.first,
-              word.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains),
-              Self.singleEditKind(from: word, to: first) == .duplicate else { return nil }
+        // Use the dictionary's recommendation for any nearby spelling error,
+        // rather than requiring the typo to belong to a reviewed lookup table.
+        guard first.allSatisfy({ Self.isWordLetter($0) || Self.isApostrophe($0) }),
+              Self.editDistance(word, first.lowercased()) <= (word.count >= 5 ? 2 : 1) else { return nil }
         return first
+    }
+
+    /// Damerau-Levenshtein distance includes swapped adjacent letters.
+    static func editDistance(_ lhs: String, _ rhs: String) -> Int {
+        let source = Array(lhs), target = Array(rhs)
+        var matrix = Array(repeating: Array(repeating: 0, count: target.count + 1), count: source.count + 1)
+        for index in 0...source.count { matrix[index][0] = index }
+        for index in 0...target.count { matrix[0][index] = index }
+        guard !source.isEmpty, !target.isEmpty else { return max(source.count, target.count) }
+        for row in 1...source.count {
+            for column in 1...target.count {
+                matrix[row][column] = min(
+                    matrix[row - 1][column] + 1,
+                    matrix[row][column - 1] + 1,
+                    matrix[row - 1][column - 1] + (source[row - 1] == target[column - 1] ? 0 : 1)
+                )
+                if row > 1, column > 1,
+                   source[row - 1] == target[column - 2], source[row - 2] == target[column - 1] {
+                    matrix[row][column] = min(matrix[row][column], matrix[row - 2][column - 2] + 1)
+                }
+            }
+        }
+        return matrix[source.count][target.count]
     }
 
     private static func highConfidenceMissingSpace(from observed: String, candidate: String) -> String? {
@@ -306,87 +317,6 @@ struct FastCorrectionEngine {
         guard normalized(candidate) == normalized(observed) else { return nil }
         return parts.joined(separator: " ")
     }
-
-    private enum SingleEditKind {
-        case duplicate
-        case extra
-        case missing
-        case neighbour
-        case transposition
-    }
-
-    private static func singleEditKind(from observed: String, to candidate: String) -> SingleEditKind? {
-        guard candidate != observed,
-              candidate.unicodeScalars.allSatisfy(CharacterSet.lowercaseLetters.contains) else { return nil }
-
-        let source = Array(observed)
-        let target = Array(candidate)
-        let lengthDifference = target.count - source.count
-        guard abs(lengthDifference) <= 1 else { return nil }
-
-        if lengthDifference == 0 {
-            let mismatches = source.indices.filter { source[$0] != target[$0] }
-            if mismatches.count == 2,
-               mismatches[1] == mismatches[0] + 1,
-               source[mismatches[0]] == target[mismatches[1]],
-               source[mismatches[1]] == target[mismatches[0]] {
-                return .transposition
-            }
-            if mismatches.count == 1 {
-                return keyboardNeighbours[source[mismatches[0]], default: []].contains(target[mismatches[0]])
-                    ? .neighbour : nil
-            }
-            return nil
-        }
-
-        // A single missing or extra letter is a high-confidence edit only when
-        // the rest of the word is identical.
-        let longer = lengthDifference > 0 ? target : source
-        let shorter = lengthDifference > 0 ? source : target
-        var longIndex = 0
-        var shortIndex = 0
-        var skipped = false
-        while longIndex < longer.count, shortIndex < shorter.count {
-            if longer[longIndex] == shorter[shortIndex] {
-                longIndex += 1
-                shortIndex += 1
-            } else if !skipped {
-                skipped = true
-                longIndex += 1
-            } else {
-                return nil
-            }
-        }
-        if lengthDifference > 0 { return .missing }
-
-        let extraIndex = zip(source.indices, target.indices).first {
-            source[$0.0] != target[$0.1]
-        }?.0 ?? (source.count - 1)
-        let isDuplicate = (extraIndex > 0 && source[extraIndex] == source[extraIndex - 1])
-            || (extraIndex + 1 < source.count && source[extraIndex] == source[extraIndex + 1])
-        return isDuplicate ? .duplicate : .extra
-    }
-
-    private static let keyboardNeighbours: [Character: Set<Character>] = {
-        let rows = [Array("qwertyuiop"), Array("asdfghjkl"), Array("zxcvbnm")]
-        var result: [Character: Set<Character>] = [:]
-        for (rowIndex, row) in rows.enumerated() {
-            for (column, key) in row.enumerated() {
-                var neighbours = Set<Character>()
-                for adjacentRowIndex in max(0, rowIndex - 1)...min(rows.count - 1, rowIndex + 1) {
-                    let adjacentRow = rows[adjacentRowIndex]
-                    let lowerBound = max(0, min(column - 1, adjacentRow.count - 1))
-                    let upperBound = min(adjacentRow.count - 1, column + 1)
-                    for adjacentColumn in lowerBound...upperBound
-                    where !(adjacentRowIndex == rowIndex && adjacentColumn == column) {
-                        neighbours.insert(adjacentRow[adjacentColumn])
-                    }
-                }
-                result[key] = neighbours
-            }
-        }
-        return result
-    }()
 
     private static func capitalizingFirstLetter(of text: String) -> String {
         guard let first = text.first else { return text }
