@@ -1,0 +1,214 @@
+{
+  "automatic_threshold" : 0.97999999999999998,
+  "coreml" : [
+    {
+      "available" : true,
+      "cold_load_ms" : 0.99154200000000003,
+      "compute_units" : "cpu_only",
+      "iterations" : 1000,
+      "p50_ms" : 0.519208,
+      "p95_ms" : 0.57691599999999998,
+      "p99_ms" : 0.672875,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 2.0400830000000001,
+      "compute_units" : "cpu_and_neural_engine",
+      "iterations" : 1000,
+      "p50_ms" : 0.51975000000000005,
+      "p95_ms" : 0.748,
+      "p99_ms" : 1.1435420000000001,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    },
+    {
+      "available" : true,
+      "cold_load_ms" : 2.552791,
+      "compute_units" : "all",
+      "iterations" : 1000,
+      "p50_ms" : 0.51470800000000005,
+      "p95_ms" : 0.65495800000000004,
+      "p99_ms" : 0.81966700000000003,
+      "predictions" : [
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.89586918552350203,
+          "text" : "your returning tomorrow"
+        },
+        {
+          "action" : "theirToTheyre",
+          "confidence" : 0.98062607080935793,
+          "text" : "their arriving soon"
+        },
+        {
+          "action" : "thereToTheyre",
+          "confidence" : 0.78610067817845841,
+          "text" : "there painting outside"
+        },
+        {
+          "action" : "yourToYoure",
+          "confidence" : 0.86374218615828902,
+          "text" : "your ready meal"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.99463885974365529,
+          "text" : "their going rate"
+        },
+        {
+          "action" : "keep",
+          "confidence" : 0.96664024648615332,
+          "text" : "there is hope"
+        }
+      ]
+    }
+  ],
+  "deterministic" : {
+    "iterations" : 10000,
+    "p50_ms" : 0.01975,
+    "p95_ms" : 0.064583000000000002,
+    "p99_ms" : 0.13387499999999999
+  },
+  "general_spelling" : {
+    "available" : true,
+    "cold_load_ms" : 452.55229200000002,
+    "predictions" : [
+      {
+        "input" : "Hello whta is yuor name? ",
+        "output" : "Hello what is your name? "
+      },
+      {
+        "input" : "This is what its doign. ",
+        "output" : "This is what its doing. "
+      },
+      {
+        "input" : "it should be bale to do all corrections ",
+        "output" : "It should be able to do all corrections "
+      },
+      {
+        "input" : "I have a bale of hay ",
+        "output" : "I have a bale of hay "
+      },
+      {
+        "input" : "I heard form you yesterday ",
+        "output" : "I heard from you yesterday "
+      },
+      {
+        "input" : "visit whta.com and yuor@example.com ",
+        "output" : "Visit whta.com and yuor@example.com "
+      }
+    ]
+  },
+  "hardware" : "Mac14,2",
+  "os" : "Version 26.6.2 (Build 25G83)",
+  "personalisation" : {
+    "complete_phrase_boundary" : {
+      "p50_ms" : 0.038915999999999999,
+      "p95_ms" : 0.044707999999999998,
+      "p99_ms" : 0.072457999999999995
+    },
+    "iterations" : 2000,
+    "ordinary_typing_14_characters" : {
+      "p50_ms" : 0.0041669999999999997,
+      "p95_ms" : 0.0087919999999999995,
+      "p99_ms" : 0.034750000000000003
+    },
+    "personalised_scoring" : {
+      "p50_ms" : 0.00041599999999999997,
+      "p95_ms" : 0.00045899999999999999,
+      "p99_ms" : 0.0013749999999999999
+    },
+    "phrase_generation_and_pruning" : {
+      "p50_ms" : 0.037041999999999999,
+      "p95_ms" : 0.053459,
+      "p99_ms" : 0.099375000000000005
+    },
+    "phrase_ranking" : {
+      "p50_ms" : 0.00041599999999999997,
+      "p95_ms" : 0.00050000000000000001,
+      "p99_ms" : 0.00054199999999999995
+    },
+    "protected_word_lookup" : {
+      "p50_ms" : 0.00025000000000000001,
+      "p95_ms" : 0.00054100000000000003,
+      "p99_ms" : 0.00058399999999999999
+    },
+    "simple_spelling" : {
+      "p50_ms" : 0.021042000000000002,
+      "p95_ms" : 0.047708,
+      "p99_ms" : 0.095833000000000002
+    },
+    "suggestion_generation" : {
+      "p50_ms" : 0.018124999999999999,
+      "p95_ms" : 0.079875000000000002,
+      "p99_ms" : 0.204375
+    },
+    "uncached_spelling_lookup_20_words" : {
+      "p50_ms" : 0.60516700000000001,
+      "p95_ms" : 0.84620799999999996,
+      "p99_ms" : 0.84620799999999996
+    }
+  }
+}

@@ -1,6 +1,10 @@
 # Cappy correction evaluation
 
-## Current general-spelling policy (0.7.0)
+## Current policy (0.8.0)
+
+See [INTELLIGENT-CORRECTION.md](INTELLIGENT-CORRECTION.md) for the full implementation report. `make evaluate` runs the grouped 88-case fixture dataset in `Resources/CorrectionEvaluation.json` against the packaged dictionary, corpus and Core ML model. Raw results are in `QUALITY-Intelligent.json`; release performance is in `BENCHMARK-Intelligent.json`. Historical results below describe earlier policies and are not current accuracy claims. The runtime automatic threshold is now 0.98; the trainer reads this central Swift constant for future evaluations. Existing model weights and historical metrics have not been retrained or relabelled.
+
+## Historical general-spelling policy (0.7.0)
 
 Spelling is no longer limited to a typo table or long duplicate-letter errors. Cappy uses the native British English automatic-correction recommendation and otherwise the top ranked dictionary guess. A generic Damerau-Levenshtein filter allows one edit for 2–4 character words and two edits for longer words, including adjacent transpositions. Exact missing-space splits are also accepted. This increases coverage at the cost of potentially choosing the wrong plausible spelling; the historical precision numbers below do not establish this release's accuracy.
 

@@ -1,0 +1,442 @@
+[
+  {
+    "group": "common misspellings",
+    "input": "I aggree ",
+    "expected": "I agree "
+  },
+  {
+    "group": "common misspellings",
+    "input": "I definately agree ",
+    "expected": "I definitely agree "
+  },
+  {
+    "group": "common misspellings",
+    "input": "Please recieve this ",
+    "expected": "Please receive this "
+  },
+  {
+    "group": "common misspellings",
+    "input": "This is seperate ",
+    "expected": "This is separate "
+  },
+  {
+    "group": "common misspellings",
+    "input": "It is becuase ",
+    "expected": "It is because "
+  },
+  {
+    "group": "common misspellings",
+    "input": "That is neccessary ",
+    "expected": "That is necessary "
+  },
+  {
+    "group": "transpositions",
+    "input": "I typed teh ",
+    "expected": "I typed the "
+  },
+  {
+    "group": "transpositions",
+    "input": "I typed whta ",
+    "expected": "I typed what "
+  },
+  {
+    "group": "transpositions",
+    "input": "I typed yuor ",
+    "expected": "I typed your "
+  },
+  {
+    "group": "transpositions",
+    "input": "I am doign ",
+    "expected": "I am doing "
+  },
+  {
+    "group": "transpositions",
+    "input": "Please welocme ",
+    "expected": "Please welcome "
+  },
+  {
+    "group": "transpositions",
+    "input": "Come on nwo ",
+    "expected": "Come on now "
+  },
+  {
+    "group": "missing characters",
+    "input": "Please agre ",
+    "expected": "Please agree "
+  },
+  {
+    "group": "missing characters",
+    "input": "I wil go ",
+    "expected": "I will go "
+  },
+  {
+    "group": "missing characters",
+    "input": "Please rember ",
+    "expected": "Please remember "
+  },
+  {
+    "group": "missing characters",
+    "input": "It is importnt ",
+    "expected": "It is important "
+  },
+  {
+    "group": "extra characters",
+    "input": "The commmittee ",
+    "expected": "The committee "
+  },
+  {
+    "group": "extra characters",
+    "input": "I aggree ",
+    "expected": "I agree "
+  },
+  {
+    "group": "extra characters",
+    "input": "The meetting ",
+    "expected": "The meeting "
+  },
+  {
+    "group": "extra characters",
+    "input": "This happenned ",
+    "expected": "This happened "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "I dont ",
+    "expected": "I don't "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "I shouldnt ",
+    "expected": "I shouldn't "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "We couldnt ",
+    "expected": "We couldn't "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "They wouldnt ",
+    "expected": "They wouldn't "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "It isnt ",
+    "expected": "It isn't "
+  },
+  {
+    "group": "missing apostrophes",
+    "input": "We arent ",
+    "expected": "We aren't "
+  },
+  {
+    "group": "missing spaces",
+    "input": "Can'tget ",
+    "expected": "Can't get "
+  },
+  {
+    "group": "missing spaces",
+    "input": "Tell me whatabout ",
+    "expected": "Tell me what about "
+  },
+  {
+    "group": "missing spaces",
+    "input": "Meet me inthe ",
+    "expected": "Meet me in the "
+  },
+  {
+    "group": "real-word mistakes",
+    "input": "I heard form you ",
+    "expected": "I heard from you "
+  },
+  {
+    "group": "real-word mistakes",
+    "input": "It should be bale to ",
+    "expected": "It should be able to "
+  },
+  {
+    "group": "real-word mistakes",
+    "input": "Your going home ",
+    "expected": "You're going home "
+  },
+  {
+    "group": "real-word mistakes",
+    "input": "I should of ",
+    "expected": "I should have "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "Ho ware you ",
+    "expected": "How are you "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "What ar you doing ",
+    "expected": "What are you doing "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "Can yu send it ",
+    "expected": "Can you send it "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "How ar you ",
+    "expected": "How are you "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "Can yu help ",
+    "expected": "Can you help "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "What ar we doing ",
+    "expected": "What are we doing "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "Ware you ",
+    "expected": "Are you "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "I dint no that ",
+    "expected": "I didn't know that "
+  },
+  {
+    "group": "multi-word mistakes",
+    "input": "I wan tot go ",
+    "expected": "I want to go "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I use wibble ",
+    "expected": "I use wibble "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I say yeet ",
+    "expected": "I say yeet "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I use hundo ",
+    "expected": "I use hundo "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I have a bale of hay ",
+    "expected": "I have a bale of hay "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "The ship will sail to port ",
+    "expected": "The ship will sail to port "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I use schlep ",
+    "expected": "I use schlep "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I say meh ",
+    "expected": "I say meh "
+  },
+  {
+    "group": "valid unusual words",
+    "input": "I use zorb ",
+    "expected": "I use zorb "
+  },
+  {
+    "group": "names",
+    "input": "Hello Sanjay ",
+    "expected": "Hello Sanjay "
+  },
+  {
+    "group": "names",
+    "input": "Hello Elowen ",
+    "expected": "Hello Elowen "
+  },
+  {
+    "group": "names",
+    "input": "Hello Siobhan ",
+    "expected": "Hello Siobhan "
+  },
+  {
+    "group": "names",
+    "input": "Hello Ximena ",
+    "expected": "Hello Ximena "
+  },
+  {
+    "group": "names",
+    "input": "Hello Aoife ",
+    "expected": "Hello Aoife "
+  },
+  {
+    "group": "names",
+    "input": "Hello Niamh ",
+    "expected": "Hello Niamh "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use CoreML ",
+    "expected": "I use CoreML "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use QuantLab ",
+    "expected": "I use QuantLab "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use SwiftUI ",
+    "expected": "I use SwiftUI "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use snake_case ",
+    "expected": "I use snake_case "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use camelCase ",
+    "expected": "I use camelCase "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use /tmp/whta ",
+    "expected": "I use /tmp/whta "
+  },
+  {
+    "group": "technical terms",
+    "input": "Visit whta.com ",
+    "expected": "Visit whta.com "
+  },
+  {
+    "group": "technical terms",
+    "input": "Email yuor@example.com ",
+    "expected": "Email yuor@example.com "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use C++ ",
+    "expected": "I use C++ "
+  },
+  {
+    "group": "technical terms",
+    "input": "I use v1.2.3 ",
+    "expected": "I use v1.2.3 "
+  },
+  {
+    "group": "abbreviations",
+    "input": "SMT ",
+    "expected": "SMT "
+  },
+  {
+    "group": "abbreviations",
+    "input": "IFVG ",
+    "expected": "IFVG "
+  },
+  {
+    "group": "abbreviations",
+    "input": "NQ ",
+    "expected": "NQ "
+  },
+  {
+    "group": "abbreviations",
+    "input": "API ",
+    "expected": "API "
+  },
+  {
+    "group": "abbreviations",
+    "input": "GPU ",
+    "expected": "GPU "
+  },
+  {
+    "group": "abbreviations",
+    "input": "CPU ",
+    "expected": "CPU "
+  },
+  {
+    "group": "abbreviations",
+    "input": "HTTP ",
+    "expected": "HTTP "
+  },
+  {
+    "group": "abbreviations",
+    "input": "SQL ",
+    "expected": "SQL "
+  },
+  {
+    "group": "valid sentences",
+    "input": "Your ready meal is here ",
+    "expected": "Your ready meal is here "
+  },
+  {
+    "group": "valid sentences",
+    "input": "Their going rate is fair ",
+    "expected": "Their going rate is fair "
+  },
+  {
+    "group": "valid sentences",
+    "input": "The form you need is here ",
+    "expected": "The form you need is here "
+  },
+  {
+    "group": "valid sentences",
+    "input": "We discuss the trial tomorrow ",
+    "expected": "We discuss the trial tomorrow "
+  },
+  {
+    "group": "valid sentences",
+    "input": "She walked along the trail yesterday ",
+    "expected": "She walked along the trail yesterday "
+  },
+  {
+    "group": "valid sentences",
+    "input": "There is hope ",
+    "expected": "There is hope "
+  },
+  {
+    "group": "valid sentences",
+    "input": "Its name is fine ",
+    "expected": "Its name is fine "
+  },
+  {
+    "group": "valid sentences",
+    "input": "I should offer help ",
+    "expected": "I should offer help "
+  },
+  {
+    "group": "valid sentences",
+    "input": "The quick brown fox jumps over the lazy dog ",
+    "expected": "The quick brown fox jumps over the lazy dog "
+  },
+  {
+    "group": "valid sentences",
+    "input": "I think you are doing well ",
+    "expected": "I think you are doing well "
+  },
+  {
+    "group": "valid sentences",
+    "input": "We want to go home ",
+    "expected": "We want to go home "
+  },
+  {
+    "group": "valid sentences",
+    "input": "Can you send it ",
+    "expected": "Can you send it "
+  },
+  {
+    "group": "valid sentences",
+    "input": "What are you doing ",
+    "expected": "What are you doing "
+  },
+  {
+    "group": "valid sentences",
+    "input": "How are you ",
+    "expected": "How are you "
+  }
+]

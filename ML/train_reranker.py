@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
 from pathlib import Path
 
@@ -24,7 +25,9 @@ CLASSES = [
     "OF_TO_HAVE",
     "ITS_TO_ITS_APOSTROPHE",
 ]
-AUTOMATIC_THRESHOLD = 0.95
+# Keep evaluation aligned with the single runtime threshold definition.
+_CONFIDENCE_SOURCE = Path(__file__).resolve().parents[1] / "Sources/Cappy/CorrectionCandidate.swift"
+AUTOMATIC_THRESHOLD = float(re.search(r"static let automatic = ([0-9.]+)", _CONFIDENCE_SOURCE.read_text()).group(1))
 
 
 def fnv1a(text: str) -> int:

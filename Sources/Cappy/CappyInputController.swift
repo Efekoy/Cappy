@@ -9,13 +9,34 @@ private struct CorrectionLedger {
     let replacement: String
     let suffix: String
     let expectedCaretLocation: Int
+    let candidate: CorrectionCandidate?
+    var wasSuggestion = false
 }
 
 @objc(CappyInputController)
 final class CappyInputController: IMKInputController {
     private let session = CorrectionSession()
+    private let overlay = CorrectionOverlayController()
+
+    private func connectOverlay() {
+        session.onHide = { [weak self] in self?.overlay.hide() }
+        session.onPresentation = { [weak self] presentation, client in
+            guard let self else { return false }
+            return self.overlay.show(presentation, client: client,
+                primary: { [weak self] in
+                    guard let self else { return }
+                    switch presentation {
+                    case .corrected: _ = self.session.didCommand("undo:", client: client)
+                    case .suggestion: _ = self.session.acceptSuggestion(in: client)
+                    case .keep: _ = self.session.alwaysKeep()
+                    }
+                }, secondary: { [weak self] in self?.session.dismissPresentation() },
+                expired: { [weak self] in self?.session.expirePresentation() })
+        }
+    }
 
     override func activateServer(_ sender: Any!) {
+        connectOverlay()
         ProtectedWords.shared.reload()
         session.invalidateSession()
         session.correctionsSuppressedForApp = SafetyPolicy.suppressesCorrections(
@@ -35,20 +56,21 @@ final class CappyInputController: IMKInputController {
 
     override func menu() -> NSMenu! {
         let menu = NSMenu(title: "Cappy")
-        let item = NSMenuItem(title: "Edit words Cappy should keep…", action: #selector(editProtectedWords(_:)), keyEquivalent: "")
+        let item = NSMenuItem(title: "Cappy Settings…", action: #selector(editProtectedWords(_:)), keyEquivalent: "")
         item.target = self
         menu.addItem(item)
         return menu
     }
 
     @objc private func editProtectedWords(_ sender: Any?) {
-        _ = ProtectedWords.shared
-        NSWorkspace.shared.open(ProtectedWords.userFileURL)
+        PersonalisationSettingsController.shared.show()
     }
 
     override func inputText(_ string: String!, client sender: Any!) -> Bool {
         guard let string, !string.isEmpty, let client = sender as? any IMKTextInput else { return false }
-        return session.processInput(string, client: IMKCorrectionClient(client: client))
+        let adapter = IMKCorrectionClient(client: client)
+        if string == "\t", session.hasSuggestion { return session.didCommand("insertTab:", client: adapter) }
+        return session.processInput(string, client: adapter)
     }
 
     override func didCommand(by aSelector: Selector!, client sender: Any!) -> Bool {
@@ -65,29 +87,63 @@ protocol CorrectionClient {
     func selectedRange() -> NSRange
     func attributedSubstring(from range: NSRange) -> NSAttributedString?
     func insertText(_ string: String, replacementRange: NSRange)
+    func caretRect() -> NSRect?
 }
+extension CorrectionClient { func caretRect() -> NSRect? { nil } }
+
+enum SessionPresentation {
+    case corrected(FastCorrection)
+    case suggestion(FastCorrection)
+    case keep(String)
+}
+
 
 private struct IMKCorrectionClient: CorrectionClient {
     let client: any IMKTextInput
     func selectedRange() -> NSRange { client.selectedRange() }
     func attributedSubstring(from range: NSRange) -> NSAttributedString? { client.attributedSubstring(from: range) }
     func insertText(_ string: String, replacementRange: NSRange) { client.insertText(string, replacementRange: replacementRange) }
+    func caretRect() -> NSRect? {
+        var rect = NSRect.zero
+        _ = client.attributes(forCharacterIndex: 0, lineHeightRectangle: &rect)
+        guard rect.origin.x.isFinite, rect.origin.y.isFinite, rect.height > 0, rect.height < 200,
+              NSScreen.screens.contains(where: { $0.frame.intersects(rect) }) else { return nil }
+        return rect
+    }
 }
 
 final class CorrectionSession {
     private var engine: FastCorrectionEngine
     private let personalization: PersonalizationStore
+    private let protectedWords: ProtectedWords
+    private var pendingSuggestion: (correction: FastCorrection, candidate: CorrectionCandidate, range: NSRange, caret: Int, generation: UInt64)?
+    private var undoneSource: (source: String, replacement: String, context: String)?
+    var hasSuggestion: Bool { pendingSuggestion != nil }
+    var onPresentation: ((SessionPresentation, any CorrectionClient) -> Bool)?
+    var onHide: (() -> Void)?
 
-    init(personalization: PersonalizationStore = .shared, frequencyModel: WordFrequencyModel = .shared, protectedWords: ProtectedWords = .shared) {
+    init(personalization: PersonalizationStore = .shared, frequencyModel: WordFrequencyModel = .shared, protectedWords: ProtectedWords = .shared, phraseCandidateProvider: (([String]) -> [CorrectionCandidate])? = nil) {
         self.personalization = personalization
+        self.protectedWords = protectedWords
         engine = FastCorrectionEngine(
             candidateProvider: NativeSpellingCandidates.suggestions,
             suppressionProvider: { original, replacement in
                 protectedWords.suppresses(original: original, replacement: replacement)
                     || personalization.shouldSuppress(original: original, replacement: replacement)
+                    || original.split(separator: " ").contains { personalization.vocabularyState(String($0), protectedWords: protectedWords) == .likelyIntentional }
             },
             rerankProvider: ContextReranker.shared.decision,
-            contextualSpellingProvider: frequencyModel.replacement
+            contextualSpellingProvider: frequencyModel.replacement,
+            phraseProvider: phraseCandidateProvider ?? ContextualPhraseRanker(frequencies: frequencyModel, provider: NativeSpellingCandidates.cachedSuggestions).candidates,
+            personalScore: { candidate in
+                if personalization.shouldSuppress(original: candidate.source, replacement: candidate.replacement, context: candidate.contextSignature) { return -1 }
+                return personalization.adjustment(original: candidate.source, replacement: candidate.replacement, context: candidate.contextSignature)
+            },
+            observationProvider: { token in
+                let technical = token == token.uppercased() || !ContextualPhraseRanker.simple(token)
+                personalization.observeIntentional(token, unfamiliar: !technical && frequencyModel.count(token) == nil
+                    && !NativeSpellingCandidates.cachedSuggestions(for: token.lowercased()).isEmpty)
+            }
         )
     }
     private var recentCorrection: CorrectionLedger?
@@ -98,16 +154,28 @@ final class CorrectionSession {
     func finishSession() {
         acceptRecentCorrection()
         invalidateSession()
+        personalization.flush()
     }
 
     func processInput(_ string: String, client: any CorrectionClient, commitsInput: Bool = true) -> Bool {
         let inputReceived = ContinuousClock.now
+        discardSuggestion(.suggestionIgnored)
+        undoneSource = nil
+        onHide?()
 
         // Enter can arrive as text instead of a command. Never change the
         // message at a line break, since the app may submit it immediately.
         if string.rangeOfCharacter(from: .newlines) != nil {
             acceptRecentCorrection()
             invalidateSession()
+            if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
+            return commitsInput
+        }
+
+        // Bulk insertion/paste has no already-committed source span to validate.
+        // Pass it through without doing dictionary/model work for every word.
+        if string.count > 1 && string.contains(where: \.isWhitespace) {
+            acceptRecentCorrection(); invalidateSession()
             if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
             return commitsInput
         }
@@ -138,11 +206,13 @@ final class CorrectionSession {
                 let existingSuffix = String(correction.suffix.dropLast(string.count))
                 let replacementRange = NSRange(location: sourceRange.location, length: sourceRange.length + (existingSuffix as NSString).length)
                 guard NSMaxRange(replacementRange) == selection.location,
-                      text(in: replacementRange, from: client) == correction.original + existingSuffix else {
+                      text(in: replacementRange, from: client) == correction.original + existingSuffix,
+                      client.selectedRange() == selection else {
                     invalidateSession()
                     if commitsInput { client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0)) }
                     return commitsInput
                 }
+                engine.locateCandidate(in: sourceRange)
                 // Replace the word and commit its separator in one transaction.
                 client.insertText(correction.replacement + (commitsInput ? correction.suffix : existingSuffix), replacementRange: replacementRange)
                 if !commitsInput {
@@ -158,9 +228,11 @@ final class CorrectionSession {
                     correctedText: correction.replacement + correction.suffix,
                     replacement: correction.replacement,
                     suffix: correction.suffix,
-                    expectedCaretLocation: expectedCaret
+                    expectedCaretLocation: expectedCaret,
+                    candidate: engine.lastCandidate
                 )
                 expectedCaretLocation = expectedCaret
+                _ = onPresentation?(.corrected(correction), client)
                 return true
             }
             invalidateSession()
@@ -169,10 +241,24 @@ final class CorrectionSession {
         guard commitsInput else { return false }
         client.insertText(string, replacementRange: NSRange(location: NSNotFound, length: 0))
         expectedCaretLocation = selection.location == NSNotFound ? nil : selection.location + (string as NSString).length
+        if let suggestion = engine.suggestion, var candidate = engine.lastCandidate,
+           let caret = expectedCaretLocation,
+           let range = CorrectionRangePlanner.sourceRange(for: suggestion, selection: NSRange(location: caret, length: 0)),
+           selection.length == 0,
+           text(in: NSRange(location: range.location, length: range.length + suggestion.suffixUTF16Length), from: client) == suggestion.original + suggestion.suffix {
+            candidate.sourceRange = range
+            pendingSuggestion = (suggestion, candidate, range, caret, engine.generation)
+            if onPresentation?(.suggestion(suggestion), client) == false { pendingSuggestion = nil }
+        }
         return true
     }
 
     func didCommand(_ command: String, client: any CorrectionClient) -> Bool {
+        if command == "insertTab:", hasSuggestion { return acceptSuggestion(in: client) }
+        if command == "cancelOperation:", hasSuggestion {
+            discardSuggestion(.suggestionRejected); onHide?(); return true
+        }
+        if command != "insertSpace:" { discardSuggestion(.suggestionIgnored) }
         if command == "insertSpace:" {
             return processInput(" ", client: client)
         }
@@ -206,29 +292,31 @@ final class CorrectionSession {
         let selection = client.selectedRange()
         guard selection.location == correction.expectedCaretLocation,
               selection.length == 0,
-              text(in: correction.range, from: client) == correction.correctedText else {
+              text(in: correction.range, from: client) == correction.correctedText,
+              client.selectedRange() == selection else {
             invalidateSession()
             return false
         }
 
         let restored = correction.original + (removingSuffix ? String(correction.suffix.dropLast()) : correction.suffix)
         client.insertText(restored, replacementRange: correction.range)
-        personalization.recordRejected(
-            original: correction.original,
-            replacement: correction.replacement
-        )
+        personalization.record(correction.wasSuggestion ? .suggestionRejected : .automaticUndone,
+            original: correction.original, replacement: correction.replacement,
+            context: correction.candidate?.contextSignature ?? "")
         recentCorrection = nil
         invalidateSession()
         expectedCaretLocation = correction.range.location + (restored as NSString).length
+        undoneSource = (correction.original, correction.replacement, correction.candidate?.contextSignature ?? "")
+        _ = onPresentation?(.keep(correction.original), client)
         return true
     }
 
     private func acceptRecentCorrection() {
         guard let correction = recentCorrection else { return }
-        personalization.recordAccepted(
-            original: correction.original,
-            replacement: correction.replacement
-        )
+        if !correction.wasSuggestion {
+            personalization.record(.automaticAccepted, original: correction.original,
+                replacement: correction.replacement, context: correction.candidate?.contextSignature ?? "")
+        }
         recentCorrection = nil
     }
 
@@ -267,7 +355,67 @@ final class CorrectionSession {
         return attributed.string
     }
 
+    @discardableResult func acceptSuggestion(in client: any CorrectionClient) -> Bool {
+        guard let pending = pendingSuggestion else { return false }
+        let selection = client.selectedRange()
+        let fullRange = NSRange(location: pending.range.location,
+            length: pending.range.length + pending.correction.suffixUTF16Length)
+        guard pending.generation == engine.generation,
+              selection == NSRange(location: pending.caret, length: 0),
+              text(in: fullRange, from: client) == pending.correction.original + pending.correction.suffix,
+              client.selectedRange() == selection else {
+            invalidateSession(); return false
+        }
+        let correction = pending.correction
+        client.insertText(correction.replacement + correction.suffix, replacementRange: fullRange)
+        pendingSuggestion = nil
+        personalization.record(.suggestionAccepted, original: correction.original,
+            replacement: correction.replacement, context: pending.candidate.contextSignature)
+        engine.invalidate(); needsContextSync = true
+        let caret = fullRange.location + correction.replacementUTF16Length + correction.suffixUTF16Length
+        recentCorrection = CorrectionLedger(generation: engine.generation,
+            range: NSRange(location: fullRange.location, length: correction.replacementUTF16Length + correction.suffixUTF16Length),
+            original: correction.original, correctedText: correction.replacement + correction.suffix,
+            replacement: correction.replacement, suffix: correction.suffix, expectedCaretLocation: caret,
+            candidate: pending.candidate, wasSuggestion: true)
+        expectedCaretLocation = caret
+        _ = onPresentation?(.corrected(correction), client)
+        return true
+    }
+
+    @discardableResult func alwaysKeep() -> Bool {
+        guard let source = undoneSource else { return false }
+        let tokens = source.source.split(separator: " ").map(String.init)
+        if tokens.count == 1 {
+            guard protectedWords.protect(source.source) else { return false }
+            personalization.observeIntentional(source.source)
+        } else {
+            // Explicit phrase suppression never whitelists incidental neighbours.
+            personalization.suppressPair(original: source.source, replacement: source.replacement, context: source.context)
+        }
+        personalization.flush()
+        undoneSource = nil; onHide?(); return true
+    }
+
+    func expirePresentation() {
+        discardSuggestion(.suggestionIgnored); undoneSource = nil; onHide?()
+    }
+
+    func dismissPresentation() {
+        discardSuggestion(.suggestionRejected); undoneSource = nil; onHide?()
+    }
+
+    private func discardSuggestion(_ interaction: PersonalInteraction) {
+        guard let pending = pendingSuggestion else { return }
+        personalization.record(interaction, original: pending.correction.original,
+            replacement: pending.correction.replacement, context: pending.candidate.contextSignature)
+        pendingSuggestion = nil
+    }
+
     func invalidateSession() {
+        discardSuggestion(.suggestionIgnored)
+        undoneSource = nil
+        onHide?()
         engine.invalidate()
         recentCorrection = nil
         expectedCaretLocation = nil
@@ -301,6 +449,10 @@ enum NativeSpellingCandidates {
         cache.countLimit = 512
         return cache
     }()
+
+    static func cachedSuggestions(for word: String) -> [String] {
+        cache.object(forKey: word as NSString) as? [String] ?? []
+    }
 
     static func alternatives(for word: String) -> [String] {
         if let cached = alternativesCache.object(forKey: word as NSString) as? [String] { return cached }

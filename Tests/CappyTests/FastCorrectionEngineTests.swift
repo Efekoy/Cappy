@@ -60,7 +60,8 @@ final class FastCorrectionEngineTests: XCTestCase {
         })
         lowerRanked.synchronize(leftContext: "Meet me ")
         _ = lowerRanked.consume("inthe")
-        XCTAssertEqual(lowerRanked.consume(" ")?.replacement, "into")
+        XCTAssertNil(lowerRanked.consume(" "))
+        XCTAssertNil(lowerRanked.suggestion) // two-edit guess is below the suggestion tier
 
         var inexact = FastCorrectionEngine(candidateProvider: { _ in ["can get"] })
         inexact.synchronize(leftContext: "I ")
@@ -103,7 +104,8 @@ final class FastCorrectionEngineTests: XCTestCase {
         XCTAssertEqual(engine.consume(" ")?.replacement, "water")
 
         _ = engine.consume("agre")
-        XCTAssertEqual(engine.consume(" ")?.replacement, "agree")
+        XCTAssertNil(engine.consume(" "))
+        XCTAssertEqual(engine.suggestion?.replacement, "agree")
     }
 
     func testCorrectsGeneratedKeyboardNeighbourSubstitution() {
@@ -327,7 +329,7 @@ final class FastCorrectionEngineTests: XCTestCase {
 }
 
 final class PersonalizationStoreTests: XCTestCase {
-    func testTwoImmediateRejectionsSuppressPairWithoutStoringContext() {
+    func testThreeImmediateRejectionsSuppressPairWithoutStoringContext() {
         let suiteName = "CappyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -337,7 +339,10 @@ final class PersonalizationStoreTests: XCTestCase {
         store.recordRejected(original: "aggree", replacement: "agree")
         XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
         store.recordRejected(original: "aggree", replacement: "agree")
+        XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        store.recordRejected(original: "aggree", replacement: "agree")
         XCTAssertTrue(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        store.recordAccepted(original: "aggree", replacement: "agree")
         store.recordAccepted(original: "aggree", replacement: "agree")
         store.recordAccepted(original: "aggree", replacement: "agree")
         XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))

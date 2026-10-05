@@ -1,0 +1,906 @@
+{
+  "automatic_correct_edits" : 37,
+  "automatic_incorrect_edits" : 0,
+  "automatic_precision" : 1,
+  "automatic_recall" : 0.88095238095238093,
+  "cases" : 88,
+  "false_negative_rate" : 0.095238095238095233,
+  "false_positive_rate" : 0,
+  "integrity" : {
+    "protected_word_attempts" : 10,
+    "protected_word_success" : 1,
+    "protected_word_successes" : 10,
+    "undo_attempts" : 62,
+    "undo_success" : 1,
+    "undo_successes" : 62
+  },
+  "negative_cases" : 46,
+  "phrase_correction_success" : 0.77777777777777779,
+  "positive_cases" : 42,
+  "predictions" : [
+    {
+      "automatic_output" : "I agree ",
+      "correct_suggestion" : false,
+      "expected" : "I agree ",
+      "group" : "common misspellings",
+      "input" : "I aggree ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I definitely agree ",
+      "correct_suggestion" : false,
+      "expected" : "I definitely agree ",
+      "group" : "common misspellings",
+      "input" : "I definately agree ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Please receive this ",
+      "correct_suggestion" : false,
+      "expected" : "Please receive this ",
+      "group" : "common misspellings",
+      "input" : "Please recieve this ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "This is separate ",
+      "correct_suggestion" : false,
+      "expected" : "This is separate ",
+      "group" : "common misspellings",
+      "input" : "This is seperate ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "It is because ",
+      "correct_suggestion" : false,
+      "expected" : "It is because ",
+      "group" : "common misspellings",
+      "input" : "It is becuase ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "That is necessary ",
+      "correct_suggestion" : false,
+      "expected" : "That is necessary ",
+      "group" : "common misspellings",
+      "input" : "That is neccessary ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I typed the ",
+      "correct_suggestion" : false,
+      "expected" : "I typed the ",
+      "group" : "transpositions",
+      "input" : "I typed teh ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I typed what ",
+      "correct_suggestion" : false,
+      "expected" : "I typed what ",
+      "group" : "transpositions",
+      "input" : "I typed whta ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I typed your ",
+      "correct_suggestion" : false,
+      "expected" : "I typed your ",
+      "group" : "transpositions",
+      "input" : "I typed yuor ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I am doing ",
+      "correct_suggestion" : false,
+      "expected" : "I am doing ",
+      "group" : "transpositions",
+      "input" : "I am doign ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Please welcome ",
+      "correct_suggestion" : false,
+      "expected" : "Please welcome ",
+      "group" : "transpositions",
+      "input" : "Please welocme ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Come on now ",
+      "correct_suggestion" : false,
+      "expected" : "Come on now ",
+      "group" : "transpositions",
+      "input" : "Come on nwo ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Please agre ",
+      "correct_suggestion" : false,
+      "expected" : "Please agree ",
+      "group" : "missing characters",
+      "input" : "Please agre ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I will go ",
+      "correct_suggestion" : true,
+      "expected" : "I will go ",
+      "group" : "missing characters",
+      "input" : "I wil go ",
+      "suggestions" : [
+        "I wil → I will"
+      ]
+    },
+    {
+      "automatic_output" : "Please rember ",
+      "correct_suggestion" : false,
+      "expected" : "Please remember ",
+      "group" : "missing characters",
+      "input" : "Please rember ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "It is important ",
+      "correct_suggestion" : false,
+      "expected" : "It is important ",
+      "group" : "missing characters",
+      "input" : "It is importnt ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "The committee ",
+      "correct_suggestion" : false,
+      "expected" : "The committee ",
+      "group" : "extra characters",
+      "input" : "The commmittee ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I agree ",
+      "correct_suggestion" : false,
+      "expected" : "I agree ",
+      "group" : "extra characters",
+      "input" : "I aggree ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "The meeting ",
+      "correct_suggestion" : false,
+      "expected" : "The meeting ",
+      "group" : "extra characters",
+      "input" : "The meetting ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "This happened ",
+      "correct_suggestion" : false,
+      "expected" : "This happened ",
+      "group" : "extra characters",
+      "input" : "This happenned ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I don't ",
+      "correct_suggestion" : false,
+      "expected" : "I don't ",
+      "group" : "missing apostrophes",
+      "input" : "I dont ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I shouldn't ",
+      "correct_suggestion" : false,
+      "expected" : "I shouldn't ",
+      "group" : "missing apostrophes",
+      "input" : "I shouldnt ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "We couldn't ",
+      "correct_suggestion" : false,
+      "expected" : "We couldn't ",
+      "group" : "missing apostrophes",
+      "input" : "We couldnt ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "They wouldn't ",
+      "correct_suggestion" : false,
+      "expected" : "They wouldn't ",
+      "group" : "missing apostrophes",
+      "input" : "They wouldnt ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "It isn't ",
+      "correct_suggestion" : false,
+      "expected" : "It isn't ",
+      "group" : "missing apostrophes",
+      "input" : "It isnt ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "We aren't ",
+      "correct_suggestion" : false,
+      "expected" : "We aren't ",
+      "group" : "missing apostrophes",
+      "input" : "We arent ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Can't get ",
+      "correct_suggestion" : false,
+      "expected" : "Can't get ",
+      "group" : "missing spaces",
+      "input" : "Can'tget ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Tell me what about ",
+      "correct_suggestion" : false,
+      "expected" : "Tell me what about ",
+      "group" : "missing spaces",
+      "input" : "Tell me whatabout ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Meet me in the ",
+      "correct_suggestion" : false,
+      "expected" : "Meet me in the ",
+      "group" : "missing spaces",
+      "input" : "Meet me inthe ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I heard from you ",
+      "correct_suggestion" : false,
+      "expected" : "I heard from you ",
+      "group" : "real-word mistakes",
+      "input" : "I heard form you ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "It should be able to ",
+      "correct_suggestion" : false,
+      "expected" : "It should be able to ",
+      "group" : "real-word mistakes",
+      "input" : "It should be bale to ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "You're going home ",
+      "correct_suggestion" : false,
+      "expected" : "You're going home ",
+      "group" : "real-word mistakes",
+      "input" : "Your going home ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I should have ",
+      "correct_suggestion" : false,
+      "expected" : "I should have ",
+      "group" : "real-word mistakes",
+      "input" : "I should of ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "How are you ",
+      "correct_suggestion" : false,
+      "expected" : "How are you ",
+      "group" : "multi-word mistakes",
+      "input" : "Ho ware you ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "What are you doing ",
+      "correct_suggestion" : true,
+      "expected" : "What are you doing ",
+      "group" : "multi-word mistakes",
+      "input" : "What ar you doing ",
+      "suggestions" : [
+        "What ar → What are"
+      ]
+    },
+    {
+      "automatic_output" : "Can you send it ",
+      "correct_suggestion" : true,
+      "expected" : "Can you send it ",
+      "group" : "multi-word mistakes",
+      "input" : "Can yu send it ",
+      "suggestions" : [
+        "Can yu → Can you"
+      ]
+    },
+    {
+      "automatic_output" : "How are you ",
+      "correct_suggestion" : true,
+      "expected" : "How are you ",
+      "group" : "multi-word mistakes",
+      "input" : "How ar you ",
+      "suggestions" : [
+        "How ar → How are"
+      ]
+    },
+    {
+      "automatic_output" : "Can you help ",
+      "correct_suggestion" : true,
+      "expected" : "Can you help ",
+      "group" : "multi-word mistakes",
+      "input" : "Can yu help ",
+      "suggestions" : [
+        "Can yu → Can you"
+      ]
+    },
+    {
+      "automatic_output" : "What are we doing ",
+      "correct_suggestion" : true,
+      "expected" : "What are we doing ",
+      "group" : "multi-word mistakes",
+      "input" : "What ar we doing ",
+      "suggestions" : [
+        "What ar → What are"
+      ]
+    },
+    {
+      "automatic_output" : "Ware you ",
+      "correct_suggestion" : true,
+      "expected" : "Are you ",
+      "group" : "multi-word mistakes",
+      "input" : "Ware you ",
+      "suggestions" : [
+        "Ware you → Are you"
+      ]
+    },
+    {
+      "automatic_output" : "I dint no that ",
+      "correct_suggestion" : false,
+      "expected" : "I didn't know that ",
+      "group" : "multi-word mistakes",
+      "input" : "I dint no that ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I wan tot go ",
+      "correct_suggestion" : false,
+      "expected" : "I want to go ",
+      "group" : "multi-word mistakes",
+      "input" : "I wan tot go ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use wibble ",
+      "correct_suggestion" : false,
+      "expected" : "I use wibble ",
+      "group" : "valid unusual words",
+      "input" : "I use wibble ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I say yeet ",
+      "correct_suggestion" : false,
+      "expected" : "I say yeet ",
+      "group" : "valid unusual words",
+      "input" : "I say yeet ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use hundo ",
+      "correct_suggestion" : false,
+      "expected" : "I use hundo ",
+      "group" : "valid unusual words",
+      "input" : "I use hundo ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I have a bale of hay ",
+      "correct_suggestion" : false,
+      "expected" : "I have a bale of hay ",
+      "group" : "valid unusual words",
+      "input" : "I have a bale of hay ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "The ship will sail to port ",
+      "correct_suggestion" : false,
+      "expected" : "The ship will sail to port ",
+      "group" : "valid unusual words",
+      "input" : "The ship will sail to port ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use schlep ",
+      "correct_suggestion" : false,
+      "expected" : "I use schlep ",
+      "group" : "valid unusual words",
+      "input" : "I use schlep ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I say meh ",
+      "correct_suggestion" : false,
+      "expected" : "I say meh ",
+      "group" : "valid unusual words",
+      "input" : "I say meh ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use zorb ",
+      "correct_suggestion" : false,
+      "expected" : "I use zorb ",
+      "group" : "valid unusual words",
+      "input" : "I use zorb ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Sanjay ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Sanjay ",
+      "group" : "names",
+      "input" : "Hello Sanjay ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Elowen ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Elowen ",
+      "group" : "names",
+      "input" : "Hello Elowen ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Siobhan ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Siobhan ",
+      "group" : "names",
+      "input" : "Hello Siobhan ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Ximena ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Ximena ",
+      "group" : "names",
+      "input" : "Hello Ximena ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Aoife ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Aoife ",
+      "group" : "names",
+      "input" : "Hello Aoife ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Hello Niamh ",
+      "correct_suggestion" : false,
+      "expected" : "Hello Niamh ",
+      "group" : "names",
+      "input" : "Hello Niamh ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use CoreML ",
+      "correct_suggestion" : false,
+      "expected" : "I use CoreML ",
+      "group" : "technical terms",
+      "input" : "I use CoreML ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use QuantLab ",
+      "correct_suggestion" : false,
+      "expected" : "I use QuantLab ",
+      "group" : "technical terms",
+      "input" : "I use QuantLab ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use SwiftUI ",
+      "correct_suggestion" : false,
+      "expected" : "I use SwiftUI ",
+      "group" : "technical terms",
+      "input" : "I use SwiftUI ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use snake_case ",
+      "correct_suggestion" : false,
+      "expected" : "I use snake_case ",
+      "group" : "technical terms",
+      "input" : "I use snake_case ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use camelCase ",
+      "correct_suggestion" : false,
+      "expected" : "I use camelCase ",
+      "group" : "technical terms",
+      "input" : "I use camelCase ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use \/tmp\/whta ",
+      "correct_suggestion" : false,
+      "expected" : "I use \/tmp\/whta ",
+      "group" : "technical terms",
+      "input" : "I use \/tmp\/whta ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Visit whta.com ",
+      "correct_suggestion" : false,
+      "expected" : "Visit whta.com ",
+      "group" : "technical terms",
+      "input" : "Visit whta.com ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Email yuor@example.com ",
+      "correct_suggestion" : false,
+      "expected" : "Email yuor@example.com ",
+      "group" : "technical terms",
+      "input" : "Email yuor@example.com ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use C++ ",
+      "correct_suggestion" : false,
+      "expected" : "I use C++ ",
+      "group" : "technical terms",
+      "input" : "I use C++ ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I use v1.2.3 ",
+      "correct_suggestion" : false,
+      "expected" : "I use v1.2.3 ",
+      "group" : "technical terms",
+      "input" : "I use v1.2.3 ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "SMT ",
+      "correct_suggestion" : false,
+      "expected" : "SMT ",
+      "group" : "abbreviations",
+      "input" : "SMT ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "IFVG ",
+      "correct_suggestion" : false,
+      "expected" : "IFVG ",
+      "group" : "abbreviations",
+      "input" : "IFVG ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "NQ ",
+      "correct_suggestion" : false,
+      "expected" : "NQ ",
+      "group" : "abbreviations",
+      "input" : "NQ ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "API ",
+      "correct_suggestion" : false,
+      "expected" : "API ",
+      "group" : "abbreviations",
+      "input" : "API ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "GPU ",
+      "correct_suggestion" : false,
+      "expected" : "GPU ",
+      "group" : "abbreviations",
+      "input" : "GPU ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "CPU ",
+      "correct_suggestion" : false,
+      "expected" : "CPU ",
+      "group" : "abbreviations",
+      "input" : "CPU ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "HTTP ",
+      "correct_suggestion" : false,
+      "expected" : "HTTP ",
+      "group" : "abbreviations",
+      "input" : "HTTP ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "SQL ",
+      "correct_suggestion" : false,
+      "expected" : "SQL ",
+      "group" : "abbreviations",
+      "input" : "SQL ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Your ready meal is here ",
+      "correct_suggestion" : false,
+      "expected" : "Your ready meal is here ",
+      "group" : "valid sentences",
+      "input" : "Your ready meal is here ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Their going rate is fair ",
+      "correct_suggestion" : false,
+      "expected" : "Their going rate is fair ",
+      "group" : "valid sentences",
+      "input" : "Their going rate is fair ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "The form you need is here ",
+      "correct_suggestion" : false,
+      "expected" : "The form you need is here ",
+      "group" : "valid sentences",
+      "input" : "The form you need is here ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "We discuss the trial tomorrow ",
+      "correct_suggestion" : false,
+      "expected" : "We discuss the trial tomorrow ",
+      "group" : "valid sentences",
+      "input" : "We discuss the trial tomorrow ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "She walked along the trail yesterday ",
+      "correct_suggestion" : false,
+      "expected" : "She walked along the trail yesterday ",
+      "group" : "valid sentences",
+      "input" : "She walked along the trail yesterday ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "There is hope ",
+      "correct_suggestion" : false,
+      "expected" : "There is hope ",
+      "group" : "valid sentences",
+      "input" : "There is hope ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Its name is fine ",
+      "correct_suggestion" : false,
+      "expected" : "Its name is fine ",
+      "group" : "valid sentences",
+      "input" : "Its name is fine ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I should offer help ",
+      "correct_suggestion" : false,
+      "expected" : "I should offer help ",
+      "group" : "valid sentences",
+      "input" : "I should offer help ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "The quick brown fox jumps over the lazy dog ",
+      "correct_suggestion" : false,
+      "expected" : "The quick brown fox jumps over the lazy dog ",
+      "group" : "valid sentences",
+      "input" : "The quick brown fox jumps over the lazy dog ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "I think you are doing well ",
+      "correct_suggestion" : false,
+      "expected" : "I think you are doing well ",
+      "group" : "valid sentences",
+      "input" : "I think you are doing well ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "We want to go home ",
+      "correct_suggestion" : false,
+      "expected" : "We want to go home ",
+      "group" : "valid sentences",
+      "input" : "We want to go home ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "Can you send it ",
+      "correct_suggestion" : false,
+      "expected" : "Can you send it ",
+      "group" : "valid sentences",
+      "input" : "Can you send it ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "What are you doing ",
+      "correct_suggestion" : false,
+      "expected" : "What are you doing ",
+      "group" : "valid sentences",
+      "input" : "What are you doing ",
+      "suggestions" : [
+
+      ]
+    },
+    {
+      "automatic_output" : "How are you ",
+      "correct_suggestion" : false,
+      "expected" : "How are you ",
+      "group" : "valid sentences",
+      "input" : "How are you ",
+      "suggestions" : [
+
+      ]
+    }
+  ],
+  "suggestion_correct_events" : 7,
+  "suggestion_incorrect_events" : 0,
+  "suggestion_precision" : 1,
+  "suggestion_recall" : 0.16666666666666666
+}

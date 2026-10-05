@@ -19,7 +19,7 @@ struct ContextualRerankDecision {
 final class ContextReranker {
     static let shared = ContextReranker()
     static let featureCount = 4_096
-    static let automaticThreshold = 0.95
+    static let automaticThreshold = CorrectionConfidence.automatic
 
     private let model: MLModel?
 
@@ -101,6 +101,8 @@ final class ContextReranker {
 final class WordFrequencyModel {
     static let shared = WordFrequencyModel(url: Bundle.main.url(forResource: "LanguageFrequencies", withExtension: "tsv"))
     private let logCounts: [String: Double]
+    private let commonShortWords: [String]
+    private let neighbourCache = NSCache<NSString, NSArray>()
 
     init(url: URL?) {
         var counts: [String: Double] = [:]
@@ -113,10 +115,20 @@ final class WordFrequencyModel {
                 }
             }
         }
+        neighbourCache.countLimit = 512
         logCounts = counts
+        commonShortWords = Array(counts.filter { !$0.key.contains(" ") && $0.key.count <= 5 }.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(160).map { $0.key })
     }
 
     var isAvailable: Bool { !logCounts.isEmpty }
+    func count(_ word: String) -> Double? { logCounts[word.lowercased()] }
+    func shortNeighbours(_ word: String) -> [String] {
+        guard word.count <= 5 else { return [] }
+        if let cached = neighbourCache.object(forKey: word as NSString) as? [String] { return cached }
+        let result = commonShortWords.filter { abs($0.count - word.count) <= 1 && FastCorrectionEngine.editDistance(word, $0) == 1 }
+        neighbourCache.setObject(result as NSArray, forKey: word as NSString)
+        return result
+    }
 
     func replacement(history: [String], current: String) -> (original: String, replacement: String)? {
         guard history.count >= 2, isAvailable else { return nil }
@@ -136,7 +148,15 @@ final class WordFrequencyModel {
         let sourceLeft = logCounts[left + " " + word] ?? floor
         let sourceRight = (logCounts[word + " " + right] ?? floor) - sourceFrequency
         var best: (word: String, gain: Double)?
-        for candidate in NativeSpellingCandidates.alternatives(for: word).prefix(8).map({ $0.lowercased() }) {
+        var characters = Array(word)
+        var neighbours: [String] = []
+        for index in 0..<(characters.count - 1) {
+            characters.swapAt(index, index + 1)
+            let candidate = String(characters)
+            if logCounts[candidate] != nil { neighbours.append(candidate) }
+            characters.swapAt(index, index + 1)
+        }
+        for candidate in neighbours {
             guard candidate != word, candidate.allSatisfy(\.isLetter),
                   FastCorrectionEngine.editDistance(word, candidate) == 1,
                   word.sorted() == candidate.sorted(),
