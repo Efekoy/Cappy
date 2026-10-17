@@ -6,3 +6,4 @@ xcuserdata/
 DerivedData/
 .venv/
 ML/artifacts/
+.claude/worktrees/

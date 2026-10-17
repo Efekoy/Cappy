@@ -2,6 +2,13 @@ import AppKit
 import Carbon.HIToolbox
 import InputMethodKit
 
+if CommandLine.arguments.contains("--diagnose-accessibility") {
+    let index = CommandLine.arguments.firstIndex(of: "--diagnose-accessibility")!
+    let target = CommandLine.arguments.count > index + 1 ? CommandLine.arguments[index + 1] : nil
+    print(CrossAppAccessibility.diagnosticStatus(bundleIdentifier: target))
+    exit(EXIT_SUCCESS)
+}
+
 if let index = CommandLine.arguments.firstIndex(of: "--evaluate"), CommandLine.arguments.count > index + 1 {
     do { try CorrectionEvaluationRunner.run(url: URL(fileURLWithPath: CommandLine.arguments[index + 1])); exit(EXIT_SUCCESS) }
     catch { fputs("Evaluation failed: \(error)\n", stderr); exit(EXIT_FAILURE) }

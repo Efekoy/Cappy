@@ -20,10 +20,92 @@ struct CorrectionCandidate: Equatable {
     var personalisationAdjustment: Double = 0
     let evidence: String
     var contextSignature: String = ""
-    var finalConfidence: Double { min(0.9995, max(0, baseConfidence + contextualConfidence + personalisationAdjustment)) }
+    /// Upper bound set by the homophone guard; it never raises a confidence.
+    var confidenceCeiling: Double = 0.9995
+    var finalConfidence: Double { min(confidenceCeiling, max(0, baseConfidence + contextualConfidence + personalisationAdjustment)) }
     var tier: CorrectionTier { CorrectionConfidence.tier(finalConfidence) }
     var eligibleForAutomaticCorrection: Bool { tier == .automatic }
     var suggestionOnly: Bool { tier == .suggestion }
+}
+
+enum HomophoneEvidence: Equatable { case supports, unclear, contradicts }
+
+/// Swapping one valid homophone for another always yields a real word, so a
+/// classifier's confidence alone cannot justify the edit: “when there is one”
+/// must never become “when their is one”. Such a swap is automatic only when
+/// the exact context corroborates it; otherwise it is at most a suggestion.
+enum HomophoneGuard {
+    static let groups: [Set<String>] = [
+        ["there", "their", "they're"], ["your", "you're"], ["its", "it's"], ["to", "too", "two"], ["then", "than"]
+    ]
+    /// The highest confidence an uncorroborated homophone swap may keep.
+    static let suggestionCeiling = 0.97
+
+    private static func normalized(_ word: String) -> String {
+        word.lowercased().replacingOccurrences(of: "’", with: "'")
+    }
+
+    /// The word positions where `source` → `replacement` swaps homophones, or
+    /// nil when anything else changes (a typo fix is not a homophone swap).
+    static func swappedIndices(source: [String], replacement: [String]) -> [Int]? {
+        guard source.count == replacement.count else { return nil }
+        var indices: [Int] = []
+        for (index, (lhs, rhs)) in zip(source, replacement).enumerated() {
+            let lhs = normalized(lhs), rhs = normalized(rhs)
+            guard lhs != rhs else { continue }
+            guard groups.contains(where: { $0.contains(lhs) && $0.contains(rhs) }) else { return nil }
+            indices.append(index)
+        }
+        return indices.isEmpty ? nil : indices
+    }
+
+    private static let existentialInversions: Set<String> = [
+        "is", "was", "are", "were", "isn't", "wasn't", "aren't", "weren't"
+    ]
+    private static let questionOpeners: Set<String> = [
+        "what", "why", "where", "when", "how", "who", "which", "so", "and", "but", "or", "then", "now"
+    ]
+
+    /// “Is there room?” and “why was there going to be food?” ask whether
+    /// something exists: “there” right after a verb that opens the clause is
+    /// never possessive. “That is there phone” has a subject first, so it
+    /// is left to the other evidence. `before` holds the words before `source`.
+    static func isExistentialQuestion(before: [String], source: [String], replacement: [String]) -> Bool {
+        guard let changed = swappedIndices(source: source, replacement: replacement) else { return false }
+        let words = (before + source).map(normalized)
+        return changed.contains { index in
+            let position = index + before.count
+            guard words[position] == "there", position > 0, existentialInversions.contains(words[position - 1]) else { return false }
+            return position == 1 || questionOpeners.contains(words[position - 2])
+        }
+    }
+
+    /// Two-sided corpus comparison of the swap with the words around it. A
+    /// form the corpus cannot score, such as a contraction, is unclear.
+    static func evidence(left: String?, source: [String], replacement: [String], frequencies: WordFrequencyModel) -> HomophoneEvidence {
+        guard frequencies.isAvailable,
+              let changed = swappedIndices(source: source, replacement: replacement) else { return .unclear }
+        let original = ([left].compactMap { $0 } + source).map(normalized)
+        let proposed = ([left].compactMap { $0 } + replacement).map(normalized)
+        let offset = left == nil ? 0 : 1
+        var gain = 0.0, originalAttested = true, proposedAttested = true
+        for index in changed.map({ $0 + offset }) {
+            guard frequencies.count(original[index]) != nil, frequencies.count(proposed[index]) != nil else { return .unclear }
+            for (lhs, rhs) in [(index - 1, index), (index, index + 1)] where lhs >= 0 && rhs < original.count {
+                func logProbability(_ words: [String]) -> Double? {
+                    guard let base = frequencies.count(words[lhs]) else { return nil }
+                    return (frequencies.count(words[lhs] + " " + words[rhs]) ?? log(100.0)) - base
+                }
+                guard let before = logProbability(original), let after = logProbability(proposed) else { return .unclear }
+                originalAttested = originalAttested && frequencies.count(original[lhs] + " " + original[rhs]) != nil
+                proposedAttested = proposedAttested && frequencies.count(proposed[lhs] + " " + proposed[rhs]) != nil
+                gain += after - before
+            }
+        }
+        if gain >= log(20.0) && proposedAttested { return .supports }
+        if gain <= 0 && originalAttested { return .contradicts }
+        return .unclear
+    }
 }
 
 /// Bounded phrase search: four words, four alternatives per word, twelve beams.
@@ -136,4 +218,125 @@ struct ContextualPhraseRanker {
         return (word == lower || word == lower.prefix(1).uppercased() + lower.dropFirst())
             && word.allSatisfy { $0.isLetter || $0 == "'" || $0 == "’" }
     }
+}
+
+struct RankedSpelling: Equatable {
+    let replacement: String
+    let confidence: Double
+}
+
+/// Chooses among dictionary guesses for a flagged word using corpus frequency,
+/// the neighbouring words and common typing slips. It decides only when one
+/// guess clearly wins; anything closer is left to the other stages.
+struct SpellingRanker {
+    let frequencies: WordFrequencyModel
+    /// Cached dictionary guesses only; ranking never waits on the spell checker.
+    let provider: (String) -> [String]
+    /// Stupid-backoff weight for a missing word pair.
+    private static let backoff = log(0.4)
+
+    func rank(previous: String?, word: String, next: String?) -> RankedSpelling? {
+        let source = word.lowercased()
+        guard frequencies.isAvailable, source.count >= 3, source.count <= FastCorrectionEngine.maximumWordLength,
+              source.allSatisfy(\.isLetter) else { return nil }
+        let guesses = provider(source)
+        guard !guesses.isEmpty else { return nil }
+        // A common word stays: its own corpus evidence outweighs a guess.
+        let sourceCount = frequencies.count(source) ?? 0
+        let maximumDistance = source.count <= 4 ? 1 : source.count <= 7 ? 2 : 3
+        var options: [(word: String, distance: Int, count: Double)] = []
+        for guess in guesses.prefix(8) where guess == guess.lowercased() {
+            guard guess != source, guess.allSatisfy(\.isLetter), !options.contains(where: { $0.word == guess }),
+                  let count = frequencies.count(guess), count - sourceCount >= log(50.0) else { continue }
+            let distance = FastCorrectionEngine.editDistance(source, guess)
+            guard distance <= maximumDistance else { continue }
+            options.append((guess, distance, count))
+        }
+        guard !options.isEmpty else { return nil }
+
+        let total = (frequencies.count("the") ?? 23) + log(25.0)
+        let left = previous?.lowercased(), right = next?.lowercased()
+        var supported = Set<String>()
+        func score(_ option: (word: String, distance: Int, count: Double)) -> Double {
+            // log P(option | previous) + log P(next | option) + a small error model.
+            var value: Double
+            if let left, let pair = frequencies.count(left + " " + option.word), let base = frequencies.count(left) {
+                value = pair - base
+                supported.insert(option.word)
+            } else {
+                value = option.count - total + (left == nil ? 0 : Self.backoff)
+            }
+            if let right {
+                if let pair = frequencies.count(option.word + " " + right) {
+                    value += pair - option.count
+                    supported.insert(option.word)
+                } else {
+                    value += (frequencies.count(right) ?? log(100_000.0)) - total + Self.backoff
+                }
+            }
+            value -= Double(option.distance - 1) * 2.5
+            if Self.isCommonSlip(source, option.word) { value += 1.2 }
+            if option.word == guesses.first { value += 0.7 }
+            return value
+        }
+        typealias Option = (word: String, distance: Int, count: Double)
+        var ranked: [(option: Option, score: Double)] = options.map { (option: $0, score: score($0)) }
+        ranked.sort { lhs, rhs in
+            lhs.score == rhs.score ? lhs.option.word < rhs.option.word : lhs.score > rhs.score
+        }
+        let best = ranked[0]
+        let margin = ranked.count > 1 ? best.score - ranked[1].score : .infinity
+        let hasContext = supported.contains(best.option.word)
+        // Short words are too ambiguous for frequency alone, and distant
+        // guesses must be the only plausible word.
+        guard margin >= (hasContext ? 2.3 : 3.0),
+              hasContext || source.count >= 5,
+              best.option.distance <= 2 || (source.count >= 8 && ranked.count == 1) else { return nil }
+        return RankedSpelling(replacement: best.option.word, confidence: 0.985)
+    }
+
+    /// Typing slips far likelier than an arbitrary edit: a dropped or repeated
+    /// double letter, swapped neighbours, or a neighbouring key.
+    static func isCommonSlip(_ typed: String, _ intended: String) -> Bool {
+        let lhs = Array(typed), rhs = Array(intended)
+        if rhs.count == lhs.count + 1 {
+            for index in 1..<rhs.count where rhs[index] == rhs[index - 1] {
+                var shortened = rhs; shortened.remove(at: index)
+                if shortened == lhs { return true }
+            }
+        }
+        if lhs.count == rhs.count + 1 {
+            for index in 1..<lhs.count where lhs[index] == lhs[index - 1] {
+                var shortened = lhs; shortened.remove(at: index)
+                if shortened == rhs { return true }
+            }
+        }
+        guard lhs.count == rhs.count else { return false }
+        let differences = zip(lhs, rhs).enumerated().filter { $0.element.0 != $0.element.1 }.map(\.offset)
+        if differences.count == 2, differences[1] == differences[0] + 1,
+           lhs[differences[0]] == rhs[differences[1]], lhs[differences[1]] == rhs[differences[0]] { return true }
+        if differences.count == 1, let neighbours = keyboardNeighbours[rhs[differences[0]]] {
+            return neighbours.contains(lhs[differences[0]])
+        }
+        return false
+    }
+
+    private static let keyboardNeighbours: [Character: Set<Character>] = {
+        let rows = ["qwertyuiop", "asdfghjkl", "zxcvbnm"].map(Array.init)
+        var result: [Character: Set<Character>] = [:]
+        for (row, keys) in rows.enumerated() {
+            for (column, key) in keys.enumerated() {
+                var near = Set<Character>()
+                for (otherRow, otherKeys) in rows.enumerated() where abs(otherRow - row) <= 1 {
+                    for (otherColumn, other) in otherKeys.enumerated() where other != key {
+                        // Lower rows are staggered half a key to the right.
+                        let offset = Double(otherColumn - column) + Double(otherRow - row) * 0.5
+                        if abs(offset) <= 1 { near.insert(other) }
+                    }
+                }
+                result[key] = near
+            }
+        }
+        return result
+    }()
 }

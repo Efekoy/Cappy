@@ -140,7 +140,8 @@ enum BenchmarkRunner {
         let boundary = measure {
             var engine = FastCorrectionEngine(rerankProvider: ContextReranker.shared.decision,
                 contextualSpellingProvider: WordFrequencyModel.shared.replacement, phraseProvider: ranker.candidates,
-                personalScore: { store.adjustment(original: $0.source, replacement: $0.replacement, context: $0.contextSignature) })
+                personalScore: { store.adjustment(original: $0.source, replacement: $0.replacement, context: $0.contextSignature) },
+                homophoneEvidence: { HomophoneGuard.evidence(left: $0, source: $1, replacement: $2, frequencies: .shared) })
             engine.synchronize(leftContext: "What ar "); _ = engine.consume("you ")
         }
         return ["iterations": 2000, "uncached_spelling_lookup_20_words": summary(firstUse), "ordinary_typing_14_characters": ordinary, "simple_spelling": spelling,
@@ -263,7 +264,8 @@ enum CorrectionEvaluationRunner {
             let positive = item.input != item.expected
             if positive { positiveCases += 1 } else { negativeCases += 1 }
             var engine = FastCorrectionEngine(rerankProvider: ContextReranker.shared.decision,
-                contextualSpellingProvider: frequencies.replacement, phraseProvider: ranker.candidates)
+                contextualSpellingProvider: frequencies.replacement, phraseProvider: ranker.candidates,
+                homophoneEvidence: { HomophoneGuard.evidence(left: $0, source: $1, replacement: $2, frequencies: frequencies) })
             var output = "", hadCorrectSuggestion = false
             var suggestions: [String] = []
             let characters = Array(item.input)

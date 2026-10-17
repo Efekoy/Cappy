@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cappy · Private autocorrect for Mac</title>
+  <meta name="description" content="Cappy is fast, private, contextual autocorrect for macOS. It fixes typos as you press space, entirely on-device, in every app.">
+  <meta name="theme-color" content="#111111" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+  <link rel="icon" href="Cappy.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500&display=swap">
+  <link rel="preload" href="fonts/OpenRunde-Regular.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="apple" viewBox="0 0 24 24"><path d="M16.5 12.9c0-2.4 2-3.6 2.1-3.7-1.2-1.7-3-1.9-3.6-2-1.5-.2-3 .9-3.8.9-.8 0-2-.9-3.3-.9-1.7 0-3.3 1-4.2 2.5-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9-.1 0-2.9-1.1-2.9-4.2zM14 5.5c.7-.8 1.2-2 1-3.2-1 .1-2.2.7-3 1.5-.6.7-1.2 1.9-1 3.1 1.1.1 2.3-.6 3-1.4z"/></symbol>
+    <symbol id="cappy" viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#3157d5"/><path d="M43 19c-3-3-7-5-12-5-10 0-18 8-18 18s8 18 18 18c5 0 9-2 12-5l-5-6c-2 2-4 3-7 3-5 0-10-4-10-10s5-10 10-10c3 0 5 1 7 3z" fill="#fff"/></symbol>
+    <symbol id="arrow" viewBox="0 0 16 16"><path d="M3 8h9.5M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  </svg>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Cappy home">
+      <svg class="brand-mark" aria-hidden="true"><use href="#cappy"/></svg>
+      <span>Cappy</span>
+    </a>
+    <nav class="site-nav" aria-label="Main">
+      <a href="#top" class="is-active">Product</a>
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <a class="button button-dark site-download" href="#download">
+      <svg aria-hidden="true"><use href="#apple"/></svg>Get Cappy
+    </a>
+  </header>
+
+  <main id="top">
+    <!-- Hero: floating pieces gather into a Mac screen as you scroll -->
+    <div class="home-hero" data-motion="false">
+      <div class="hero-stage">
+        <section class="hero-copy">
+          <h1 class="editorial-heading enter" style="--d:0">Type freely.<br>Fixed quietly.</h1>
+          <p class="hero-lede enter" style="--d:1">Fast, private autocorrect for your Mac. Cappy fixes typos the moment you press space, on-device, in every app.</p>
+          <a class="button button-light hero-cta enter" style="--d:2" href="#download">
+            <svg aria-hidden="true"><use href="#apple"/></svg>Get Cappy
+          </a>
+          <p class="hero-meta enter" style="--d:3">On-device · No account · macOS 13 or later</p>
+          <a class="hero-meta-link enter" style="--d:3" href="#privacy">Nothing you type leaves your Mac</a>
+          <a class="scroll-cue enter" style="--d:4" href="#how" aria-label="Scroll to learn more">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v9.5M4 8.5l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </a>
+        </section>
+
+        <!-- Floating particles. data-target names the element they land on. -->
+        <div class="hero-particles" aria-hidden="true">
+          <div class="hero-particle" style="--x:19%;--y:31%;--r:-9deg" data-target="#t-menu-icon">
+            <div class="hero-float"><svg class="p-icon"><use href="#cappy"/></svg></div>
+          </div>
+          <div class="hero-particle" style="--x:37%;--y:17%;--r:4deg" data-target="#t-word">
+            <div class="hero-float card p-typo">
+              <span class="p-typo-src">definately</span>
+              <svg class="p-typo-arrow"><use href="#arrow"/></svg>
+              <span class="p-typo-fix">definitely</span>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:61%;--y:15%;--r:-3deg">
+            <div class="hero-float card p-space">
+              <span class="keycap keycap-wide">space</span>
+              <span class="p-space-label">commits a word</span>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:76%;--y:26%;--r:-6deg" data-target="#t-capsule">
+            <div class="hero-float glass-capsule">
+              <span class="cap-word">definitely</span><span class="cap-sep"></span><span class="cap-btn">Undo</span>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:20%;--y:54%;--r:-5deg">
+            <div class="hero-float card p-ring">
+              <svg viewBox="0 0 36 36" class="ring"><circle cx="18" cy="18" r="14" class="ring-track"/><circle cx="18" cy="18" r="14" class="ring-fill" style="--v:.98"/></svg>
+              <div><strong>0.98</strong><span>Automatic</span></div>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:79%;--y:48%;--r:5deg">
+            <div class="hero-float card p-suggest">
+              <span class="p-suggest-text"><span class="muted">your</span> → you’re</span>
+              <span class="keycap">tab</span>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:23%;--y:76%;--r:7deg" data-target="#t-hint">
+            <div class="hero-float card p-keys">
+              <span class="keycap">⌃</span><span class="keycap">⌥</span><span class="keycap">Z</span>
+              <span class="p-keys-label">Undo</span>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:78%;--y:69%;--r:-4deg" data-target="#t-status">
+            <div class="hero-float card p-private">
+              <span class="lock" aria-hidden="true"></span>
+              <div><strong>On-device</strong><span>0 network requests</span></div>
+            </div>
+          </div>
+          <div class="hero-particle" style="--x:77%;--y:88%;--r:4deg">
+            <div class="hero-float p-note">dont worry<br><span>Don’t worry</span></div>
+          </div>
+          <div class="hero-particle" style="--x:50%;--y:93%;--r:-2deg">
+            <div class="hero-float card p-stat">
+              <div><span class="dot"></span>Core ML</div>
+              <strong>0.5 ms</strong>
+              <span class="muted">median inference</span>
+              <svg viewBox="0 0 120 30" class="spark"><path d="M0 20 L12 18 L20 21 L30 15 L38 17 L48 9 L56 16 L66 13 L74 18 L84 14 L94 16 L104 11 L120 14"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mock Mac screen the particles land in -->
+        <section class="hero-screen" aria-label="Cappy correcting text in TextEdit">
+          <div class="screen">
+            <div class="screen-menubar">
+              <div class="mb-left">
+                <svg class="mb-apple" aria-hidden="true"><use href="#apple"/></svg>
+                <strong>TextEdit</strong><span>File</span><span>Edit</span><span>Format</span><span class="hide-sm">View</span><span class="hide-sm">Window</span>
+              </div>
+              <div class="mb-right">
+                <span class="mb-input target" id="t-menu-icon"><svg aria-hidden="true"><use href="#cappy"/></svg></span>
+                <span class="mb-wifi" aria-hidden="true"></span>
+                <span>Fri 10:30</span>
+              </div>
+            </div>
+
+            <div class="screen-note glass target" id="t-status">
+              <svg aria-hidden="true"><use href="#cappy"/></svg>
+              <div><strong>Cappy</strong><span>On-device · British English</span></div>
+            </div>
+
+            <div class="window">
+              <div class="window-bar">
+                <span class="tl tl-r"></span><span class="tl tl-y"></span><span class="tl tl-g"></span>
+                <span class="window-title">Message to Sam</span>
+              </div>
+              <div class="window-body">
+                <div class="doc doc-static">
+                  <p>Hello chat welcome</p>
+                  <p>I <span class="anchor"><span class="word is-fixed-static target" id="t-word">definitely</span><span class="glass-capsule doc-capsule target" id="t-capsule"><span class="cap-word">definitely</span><span class="cap-sep"></span><span class="cap-btn">Undo</span></span></span> agree<span class="caret"></span></p>
+                </div>
+                <div class="doc doc-live" aria-hidden="true"></div>
+                <div class="glass-capsule live-capsule" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <div class="screen-hint glass target" id="t-hint">
+              <span class="keycap keycap-sm">⌃</span><span class="keycap keycap-sm">⌥</span><span class="keycap keycap-sm">Z</span>
+              <span>undoes the last correction</span>
+            </div>
+          </div>
+          <p class="screen-caption">Cappy, correcting as you type</p>
+        </section>
+      </div>
+    </div>
+
+    <!-- Automatic vs suggestion -->
+    <section class="home-section" id="how">
+      <div class="section-intro reveal">
+        <h2 class="editorial-heading page-heading">Sure of itself. Never pushy.</h2>
+        <p>Every correction gets a confidence score. Clear typos are fixed on space. Close calls wait for you.</p>
+      </div>
+      <div class="split">
+        <article class="split-item reveal">
+          <div class="split-art art-auto" aria-hidden="true">
+            <div class="stack-card s1"><span class="muted strike">seperate</span><svg><use href="#arrow"/></svg>separate</div>
+            <div class="stack-card s2"><span class="muted strike">recieve</span><svg><use href="#arrow"/></svg>receive</div>
+            <div class="stack-card s3"><span class="muted strike">definately</span><svg><use href="#arrow"/></svg>definitely</div>
+            <span class="sparkle sp1"></span><span class="sparkle sp2"></span>
+          </div>
+          <span class="pill pill-blue"><svg aria-hidden="true"><use href="#cappy"/></svg>Automatic</span>
+          <h3>Fixes the obvious.</h3>
+          <p>A clear typo is corrected the moment you press space, with a quick Undo right beside it.</p>
+          <a class="text-link" href="#fixes">See what it fixes <span aria-hidden="true">↓</span></a>
+        </article>
+        <article class="split-item reveal" style="--d:1">
+          <div class="split-art art-suggest" aria-hidden="true">
+            <div class="mini-line">I think <span class="mini-word">your</span> returning</div>
+            <div class="glass-capsule mini-capsule"><span class="cap-word">you’re</span><span class="cap-sep"></span><span class="keycap keycap-sm">tab</span></div>
+          </div>
+          <span class="pill"><span class="pill-dot"></span>Suggestion</span>
+          <h3>Asks about the rest.</h3>
+          <p>When Cappy isn’t sure, it suggests instead. Tab accepts, Escape dismisses, and typing on ignores it.</p>
+          <a class="text-link" href="#undo">How undo works <span aria-hidden="true">↓</span></a>
+        </article>
+      </div>
+    </section>
+
+    <!-- Typo wall -->
+    <section class="typo-wall-section" id="fixes">
+      <div class="section-intro reveal">
+        <p class="eyebrow">In every app you type in</p>
+        <h2 class="editorial-heading page-heading">Lots of typos. All handled.</h2>
+      </div>
+      <div class="typo-wall reveal">
+        <div class="wall-row" data-row="1"></div>
+        <div class="wall-row reverse" data-row="2"></div>
+        <div class="wall-row" data-row="3"></div>
+      </div>
+      <p class="wall-note reveal">Real words stay real. <em>cant</em>, <em>wont</em>, <em>were</em>, <em>well</em> and <em>its</em> are never changed.</p>
+    </section>
+
+    <!-- Undo -->
+    <section class="home-section undo-section" id="undo">
+      <div class="undo-copy reveal">
+        <p class="eyebrow">Undo works everywhere</p>
+        <h2 class="editorial-heading page-heading">Changed your mind?<br>Change it back.</h2>
+        <p>Press Backspace right after a correction to get your word back. Or press ⌃⌥Z while the capsule is showing, even after you’ve kept typing.</p>
+      </div>
+      <div class="undo-art reveal" style="--d:1" aria-hidden="true">
+        <div class="undo-window">
+          <div class="undo-line">I <span class="undo-anchor"><span class="undo-word"><span class="v-orig">definately</span><span class="v-fixed">definitely</span></span><span class="glass-capsule undo-capsule"><span class="cap-word">definitely</span><span class="cap-sep"></span><span class="cap-btn">Undo</span></span></span> agree<span class="hide-sm">, and I’ll keep typing</span><span class="caret"></span></div>
+        </div>
+        <div class="undo-keys">
+          <span class="keycap keycap-lg k1">⌃</span><span class="keycap keycap-lg k2">⌥</span><span class="keycap keycap-lg k3">Z</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Feature grid -->
+    <section class="home-section" id="privacy">
+      <div class="section-intro reveal">
+        <h2 class="editorial-heading page-heading">Small, careful, and yours.</h2>
+        <p>Cappy runs entirely on your Mac. No account, no cloud, no typing history.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature reveal">
+          <div class="feature-art">
+            <div class="privacy-list">
+              <div><span>Network access</span><b>None</b></div>
+              <div><span>Analytics</span><b>None</b></div>
+              <div><span>Typing history</span><b>None</b></div>
+            </div>
+          </div>
+          <h3>Private by design.</h3>
+          <p>The model runs on-device. Nothing you type is sent anywhere or saved as a transcript.</p>
+        </article>
+        <article class="feature reveal" style="--d:1">
+          <div class="feature-art">
+            <div class="glass-capsule ask-capsule"><span>Stop autocorrecting “Cappy”?</span><span class="cap-sep"></span><span class="cap-btn">Yes</span></div>
+          </div>
+          <h3>Learns when you say no.</h3>
+          <p>Undo the same fix twice and Cappy asks before it stops. It never quietly gives up on a word.</p>
+        </article>
+        <article class="feature reveal" style="--d:2">
+          <div class="feature-art">
+            <div class="chip-cloud">
+              <span>github.com/you</span><span>sam@mail.com</span><span>~/Documents</span><span>camelCase</span><span>NASA</span><span>v2.0</span>
+            </div>
+          </div>
+          <h3>Leaves code alone.</h3>
+          <p>URLs, emails, paths, identifiers, numbers and abbreviations are never touched.</p>
+        </article>
+        <article class="feature reveal">
+          <div class="feature-art">
+            <div class="app-row">
+              <span style="--c:#f5c443">Notes</span><span style="--c:#3b82f6">Safari</span><span style="--c:#22c55e">Chrome</span><span style="--c:#6366f1">Discord</span><span style="--c:#e5e5e5">Notion</span><span style="--c:#f97316">Claude</span>
+            </div>
+          </div>
+          <h3>Works where you type.</h3>
+          <p>Notes, Safari, Chrome, Discord, Notion and more. Terminals and code editors are left out on purpose.</p>
+        </article>
+        <article class="feature reveal" style="--d:1">
+          <div class="feature-art">
+            <div class="speed">
+              <span class="keycap keycap-wide keycap-lg">space</span>
+              <div class="speed-bar"><span></span></div>
+              <span class="speed-label">never waits</span>
+            </div>
+          </div>
+          <h3>Never slows you down.</h3>
+          <p>Characters pass straight through. Slow dictionary lookups run in the background and settle at your next pause.</p>
+        </article>
+        <article class="feature reveal" style="--d:2">
+          <div class="feature-art">
+            <div class="settings-mock">
+              <div class="settings-tabs"><span class="on">Protected</span><span>Learned</span><span>Vocabulary</span></div>
+              <div class="settings-list"><span>Cappy</span><span>Kubernetes</span><span>hiya</span></div>
+            </div>
+          </div>
+          <h3>Your words, your rules.</h3>
+          <p>Protected words, learned corrections and observed vocabulary, all editable in Cappy Settings.</p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Numbers -->
+    <section class="home-section">
+      <div class="section-intro reveal">
+        <h2 class="editorial-heading page-heading">Careful, by the numbers.</h2>
+      </div>
+      <div class="stat-grid">
+        <div class="stat reveal"><strong class="editorial-heading">0</strong><p>wrong automatic edits across 88 regression cases</p></div>
+        <div class="stat reveal" style="--d:1"><strong class="editorial-heading">62/62</strong><p>undos restored the exact original text</p></div>
+        <div class="stat reveal" style="--d:2"><strong class="editorial-heading">0.5 ms</strong><p>median on-device grammar model inference</p></div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="home-section faq" id="faq">
+      <div class="faq-intro reveal">
+        <h2 class="editorial-heading page-heading">A few things to know.</h2>
+        <p class="muted">Still curious? The README covers everything in detail.</p>
+      </div>
+      <div class="faq-list reveal" style="--d:1">
+        <details>
+          <summary>How do I turn Cappy on?</summary>
+          <p>After installing, open System Settings → Keyboard → Text Input → Edit, press +, find Cappy under English and add it. Then choose Cappy from the Input menu in the menu bar.</p>
+        </details>
+        <details>
+          <summary>Does Cappy send my typing anywhere?</summary>
+          <p>No. Cappy has no network access, no analytics and keeps no typing history. Its timing diagnostics only record aggregate durations, never text.</p>
+        </details>
+        <details>
+          <summary>When does a correction happen?</summary>
+          <p>When a space commits a word or Tab completes it. Enter never triggers a correction, and line breaks and pasted text pass straight through.</p>
+        </details>
+        <details>
+          <summary>How do I undo a correction?</summary>
+          <p>Press Backspace right away, click Undo in the capsule, or press ⌃⌥Z while the capsule is visible. Your original word comes back exactly as typed.</p>
+        </details>
+        <details>
+          <summary>How do I stop it changing a word?</summary>
+          <p>Undo it twice and Cappy will ask whether to stop. You can also add the word to Protected Words in Cappy Settings.</p>
+        </details>
+        <details>
+          <summary>Does it need Accessibility permission?</summary>
+          <p>Not for corrections. Accessibility is optional and only used for precise word highlights in web-based editors like Discord.</p>
+        </details>
+        <details>
+          <summary>Which language does it support?</summary>
+          <p>British English, using the macOS dictionary plus a small local language model.</p>
+        </details>
+        <details>
+          <summary>Which macOS versions are supported?</summary>
+          <p>macOS 13 Ventura or later.</p>
+        </details>
+      </div>
+    </section>
+
+    <!-- Download -->
+    <section class="home-download" id="download">
+      <div class="download-glow" aria-hidden="true"></div>
+      <svg class="download-mark" aria-hidden="true"><use href="#cappy"/></svg>
+      <h2 class="editorial-heading reveal">Make every word count.</h2>
+      <p class="reveal" style="--d:1">Fast, private autocorrect for whatever you’re writing.</p>
+      <!-- TODO: point this at the release download -->
+      <a class="button button-light reveal" style="--d:2" href="#">
+        <svg aria-hidden="true"><use href="#apple"/></svg>Get Cappy for Mac
+      </a>
+      <p class="download-meta reveal" style="--d:3">Version 0.8.2 · macOS 13 or later · British English</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <a class="brand" href="#top"><svg class="brand-mark" aria-hidden="true"><use href="#cappy"/></svg><span>Cappy</span></a>
+    <nav aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#faq">FAQ</a>
+      <a href="#download">Download</a>
+    </nav>
+    <p>© 2026 Cappy · Made for people who type fast</p>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

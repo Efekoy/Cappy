@@ -105,15 +105,39 @@ final class CorrectionSessionTests: XCTestCase {
         }
     }
 
-    func testTabCorrectsWithoutInsertingSeparatorOrSwallowingCommand() {
+    func testTabCorrectionConsumesForwardTabButPreservesBacktabNavigation() {
         for command in ["insertTab:", "insertBacktab:"] {
             let session = makeSession()
             let document = TestDocument()
             type("dont", through: session, into: document)
-            XCTAssertFalse(session.didCommand(command, client: document))
+            XCTAssertEqual(session.didCommand(command, client: document), command == "insertTab:")
             XCTAssertEqual(document.text, "Don't")
             XCTAssertEqual(document.caret, 5)
         }
+    }
+
+    func testTabWithoutCorrectionKeepsHostNavigation() {
+        let session = makeSession()
+        let document = TestDocument()
+        type("Hello", through: session, into: document)
+        XCTAssertFalse(session.didCommand("insertTab:", client: document))
+        XCTAssertEqual(document.text, "Hello")
+    }
+
+    func testTabCorrectionCanBeUndoneAndNextTabNavigates() {
+        let session = makeSession()
+        let document = TestDocument()
+        type("dont", through: session, into: document)
+        XCTAssertTrue(session.didCommand("insertTab:", client: document))
+        XCTAssertTrue(session.didCommand("undo:", client: document))
+        XCTAssertEqual(document.text, "dont")
+
+        let secondSession = makeSession()
+        let secondDocument = TestDocument()
+        type("dont", through: secondSession, into: secondDocument)
+        XCTAssertTrue(secondSession.didCommand("insertTab:", client: secondDocument))
+        XCTAssertFalse(secondSession.didCommand("insertTab:", client: secondDocument))
+        XCTAssertEqual(secondDocument.text, "Don't")
     }
 
     func testBackspaceAndUndoRestoreOriginalAtRealCaret() {

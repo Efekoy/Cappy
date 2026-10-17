@@ -37,6 +37,8 @@ struct FastCorrectionEngine {
     typealias SuppressionProvider = (_ original: String, _ replacement: String) -> Bool
     typealias ContextualSpellingProvider = (_ history: [String], _ current: String) -> (original: String, replacement: String)?
     typealias RerankProvider = (_ tokens: [String]) -> ContextualRerankDecision?
+    typealias SpellingRankProvider = (_ previous: String?, _ word: String, _ next: String?) -> RankedSpelling?
+    typealias HomophoneEvidenceProvider = (_ left: String?, _ source: [String], _ replacement: [String]) -> HomophoneEvidence
 
     static let maximumWordLength = 32
     static let maximumContextUTF16Length = 96
@@ -58,7 +60,9 @@ struct FastCorrectionEngine {
     private var observationProvider: (String) -> Void
     private(set) var suggestion: FastCorrection?
     private(set) var lastCandidate: CorrectionCandidate?
-
+    private let spellingRanker: SpellingRankProvider?
+    private let rejectionProvider: (String) -> Bool
+    private let homophoneEvidence: HomophoneEvidenceProvider?
 
     init(
         candidateProvider: @escaping CandidateProvider = NativeSpellingCandidates.suggestions,
@@ -67,9 +71,14 @@ struct FastCorrectionEngine {
         contextualSpellingProvider: ContextualSpellingProvider? = nil,
         phraseProvider: (([String]) -> [CorrectionCandidate])? = nil,
         personalScore: @escaping (CorrectionCandidate) -> Double = { _ in 0 },
-        observationProvider: @escaping (String) -> Void = { _ in }
-
+        observationProvider: @escaping (String) -> Void = { _ in },
+        spellingRanker: SpellingRankProvider? = nil,
+        rejectionProvider: @escaping (String) -> Bool = { _ in false },
+        homophoneEvidence: HomophoneEvidenceProvider? = nil
     ) {
+        self.homophoneEvidence = homophoneEvidence
+        self.spellingRanker = spellingRanker
+        self.rejectionProvider = rejectionProvider
         self.candidateProvider = candidateProvider
         self.suppressionProvider = suppressionProvider
         self.rerankProvider = rerankProvider
@@ -78,8 +87,6 @@ struct FastCorrectionEngine {
         self.personalScore = personalScore
         self.observationProvider = observationProvider
     }
-
-    mutating func disableObservations() { observationProvider = { _ in } }
 
     mutating func locateCandidate(in range: NSRange) { lastCandidate?.sourceRange = range }
 
@@ -114,6 +121,23 @@ struct FastCorrectionEngine {
 
     mutating func consume(_ text: String) -> FastCorrection? {
         consume(text, allowsCorrection: true)
+    }
+
+    /// Advance word and sentence state without searching for a correction, so a
+    /// boundary can be decided later from the settled document.
+    mutating func consumeWithoutCorrection(_ text: String) {
+        suggestion = nil; lastCandidate = nil
+        _ = consume(text, allowsCorrection: false)
+    }
+
+    /// The word and punctuation awaiting a boundary.
+    var pendingToken: String { currentWord + pendingPunctuation }
+
+    /// The dictionary entry a boundary would look up for the pending word.
+    var boundaryLookupKey: String? {
+        guard !currentWord.isEmpty, !tokenIsProtected, !wordOverflowed,
+              Self.hasSimpleCasing(currentWord) else { return nil }
+        return currentWord.lowercased()
     }
 
     private mutating func consume(_ text: String, allowsCorrection: Bool) -> FastCorrection? {
@@ -200,7 +224,26 @@ struct FastCorrectionEngine {
             candidates.append(CorrectionCandidate(source: source, replacement: replacement, type: type,
                 baseConfidence: confidence, contextualConfidence: 0, evidence: evidence))
         }
-        if let replacement = replacement(for: word, atSentenceStart: atSentenceStart) {
+        func cased(_ replacement: String, like source: String, sentenceStart: Bool) -> String {
+            sentenceStart || source.first?.isUppercase == true ? Self.capitalizingFirstLetter(of: replacement) : replacement
+        }
+        // Look the word up first; the ranker reads only cached guesses.
+        let dictionaryReplacement = replacement(for: word, atSentenceStart: atSentenceStart)
+        let ranked = Self.hasSimpleCasing(word) ? spellingRanker?(recentWords.last, word, nil) : nil
+        if let ranked {
+            add(word, cased(ranked.replacement, like: word, sentenceStart: atSentenceStart), ranked.confidence,
+                "ranked-spelling", "dictionary guesses ranked by corpus frequency, context and typing slips")
+        }
+        // A short ambiguous typo can be settled by the word typed after it,
+        // as in “agre with” → “agree with”. Never revisit a word the user undid.
+        if let previous = recentWords.last, Self.hasSimpleCasing(previous), !rejectionProvider(previous),
+           let revisited = spellingRanker?(recentWords.dropLast().last, previous, word),
+           revisited.confidence >= CorrectionConfidence.automatic {
+            add(previous + " " + word, cased(revisited.replacement, like: previous, sentenceStart: false) + " " + word,
+                revisited.confidence, "ranked-spelling-context", "dictionary guesses ranked with the following word")
+        }
+        if let replacement = dictionaryReplacement,
+           ranked == nil || replacement.lowercased() != word.lowercased() {
             let lhs = word.lowercased(), rhs = replacement.lowercased()
             let apostropheOnly = rhs.replacingOccurrences(of: "'", with: "").replacingOccurrences(of: "’", with: "") == lhs
             let transposition = lhs.sorted() == rhs.sorted() && Self.editDistance(lhs, rhs) == 1
@@ -240,6 +283,7 @@ struct FastCorrectionEngine {
             let spanWords = candidates[index].source.split(separator: " ").count
             candidates[index].contextSignature = PersonalizationStore.contextSignature(Array(recentWords.dropLast(max(0, spanWords - 1))))
             candidates[index].personalisationAdjustment = personalScore(candidates[index])
+            guardHomophones(&candidates[index], spanWords: spanWords)
         }
         return candidates.filter {
             !suppressionProvider($0.source, $0.replacement) && $0.tier != .ignore
@@ -249,6 +293,25 @@ struct FastCorrectionEngine {
             let rhs = $1.finalConfidence
             return lhs == rhs ? $0.source < $1.source : lhs > rhs
         }.first
+    }
+
+    /// Valid homophones are never swapped automatically on a classifier's or
+    /// learned preference's word alone. The corpus must corroborate the swap
+    /// in this exact context; a curated grammar pattern is itself that
+    /// evidence. A swap the corpus contradicts is dropped altogether.
+    private func guardHomophones(_ candidate: inout CorrectionCandidate, spanWords: Int) {
+        let source = candidate.source.split(separator: " ").map(String.init)
+        let replacement = candidate.replacement.split(separator: " ").map(String.init)
+        guard HomophoneGuard.swappedIndices(source: source, replacement: replacement) != nil else { return }
+        let before = Array(recentWords.dropLast(max(0, spanWords - 1)).suffix(2))
+        let evidence = HomophoneGuard.isExistentialQuestion(before: before, source: source, replacement: replacement)
+            ? .contradicts : homophoneEvidence?(before.last, source, replacement) ?? .unclear
+        switch evidence {
+        case .supports: return
+        case .contradicts: candidate.confidenceCeiling = 0
+        case .unclear where candidate.type != "context": candidate.confidenceCeiling = HomophoneGuard.suggestionCeiling
+        case .unclear: return
+        }
     }
 
     private func neuralReplacement(for word: String) -> (original: String, replacement: String, confidence: Double)? {
@@ -307,11 +370,16 @@ struct FastCorrectionEngine {
     private func replacement(for word: String, atSentenceStart: Bool) -> String? {
         guard !word.isEmpty, Self.hasSimpleCasing(word) else { return nil }
         let lowercased = word.lowercased()
-        var replacement: String? = lowercased == "i" ? "I" : nil
+        // At the beginning of a sentence, “lets” is normally “let us”.
+        // Inside a sentence, preserve valid verbs such as “she lets me”.
+        var replacement: String? = lowercased == "i" ? "I"
+            : lowercased == "lets" && atSentenceStart ? "let's" : nil
 
         if replacement == nil, Self.hasSimpleCasing(word) {
             replacement = dictionaryReplacement(for: lowercased)
         }
+        // The dictionary accepts some apostrophe-free contractions as words.
+        if replacement == nil { replacement = Self.apostropheFreeContractions[lowercased] }
 
         if replacement == nil, atSentenceStart, word.first?.isLowercase == true {
             replacement = Self.capitalizingFirstLetter(of: word)
@@ -344,6 +412,21 @@ struct FastCorrectionEngine {
               Self.editDistance(word, first.lowercased()) <= (word.count >= 5 ? 2 : 1) else { return nil }
         return first
     }
+
+    /// Contractions typed without the apostrophe that the dictionary accepts
+    /// as words. Forms that are also English words (cant, wont, well, were,
+    /// ill, shell, hell, its, lets) are deliberately absent.
+    static let apostropheFreeContractions: [String: String] = [
+        "thats": "that's", "whats": "what's", "wheres": "where's", "theres": "there's", "heres": "here's",
+        "whos": "who's", "hows": "how's", "hes": "he's", "shes": "she's", "im": "I'm", "ive": "I've",
+        "youre": "you're", "youve": "you've", "youll": "you'll", "theyre": "they're", "theyve": "they've",
+        "theyll": "they'll", "weve": "we've", "isnt": "isn't", "arent": "aren't", "wasnt": "wasn't",
+        "werent": "weren't", "dont": "don't", "doesnt": "doesn't", "didnt": "didn't", "hasnt": "hasn't",
+        "havent": "haven't", "hadnt": "hadn't", "wouldnt": "wouldn't", "couldnt": "couldn't",
+        "shouldnt": "shouldn't", "mustnt": "mustn't", "neednt": "needn't", "aint": "ain't",
+        "itll": "it'll", "thatll": "that'll", "wouldve": "would've", "couldve": "could've",
+        "shouldve": "should've", "mightve": "might've", "mustve": "must've"
+    ]
 
     /// Damerau-Levenshtein distance includes swapped adjacent letters.
     static func editDistance(_ lhs: String, _ rhs: String) -> Int {
@@ -421,6 +504,10 @@ enum ContextualScorer {
         let lhs = previous.lowercased()
         let rhs = current.lowercased()
 
+        if lhs == "lets", ["go", "get", "do", "make", "try", "see", "start", "stop", "take", "talk", "say", "just", "not"].contains(rhs),
+           history.count == 1 || ["so", "okay", "ok", "then", "and", "but", "now"].contains(history[history.count - 2].lowercased()) {
+            return (previous + " " + current, preserveInitialCase(of: previous, in: "let's") + " " + current)
+        }
         if ["should", "could", "would"].contains(lhs), rhs == "of" {
             return (previous + " " + current, preserveInitialCase(of: previous, in: lhs + " have"))
         }

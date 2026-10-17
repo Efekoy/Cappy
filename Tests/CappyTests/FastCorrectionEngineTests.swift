@@ -2,6 +2,25 @@ import XCTest
 @testable import Cappy
 
 final class FastCorrectionEngineTests: XCTestCase {
+    func testLetsRestoresApostropheAtSentenceStartAndInInvitation() {
+        for (context, input, expected) in [("", "lets", "Let's"), ("", "Lets", "Let's"), ("Hello. ", "lets", "Let's"), ("so lets ", "go", "let's go")] {
+            var engine = FastCorrectionEngine(candidateProvider: { _ in [] })
+            engine.synchronize(leftContext: context)
+            _ = engine.consume(input)
+            XCTAssertEqual(engine.consume(" ")?.replacement, expected)
+        }
+    }
+    func testLetsPreservesOrdinaryVerb() {
+        for context in ["she ", "he ", "it ", "this app "] {
+            var engine = FastCorrectionEngine(candidateProvider: { _ in [] })
+            engine.synchronize(leftContext: context)
+            _ = engine.consume("lets")
+            XCTAssertNil(engine.consume(" "))
+            _ = engine.consume("go")
+            XCTAssertNil(engine.consume(" "))
+        }
+    }
+
     func testCorrectsRequestedTypoAfterSpace() {
         var engine = FastCorrectionEngine()
         for character in "I definately" { XCTAssertNil(engine.consume(String(character))) }
@@ -234,9 +253,10 @@ final class FastCorrectionEngineTests: XCTestCase {
     }
 
     func testNeuralRerankerAppliesOnlyValidatedHighConfidenceAction() {
+        // A homophone swap needs exact-context evidence beyond the classifier.
         var engine = FastCorrectionEngine(rerankProvider: { _ in
             ContextualRerankDecision(action: .yourToYoure, confidence: 0.999)
-        })
+        }, homophoneEvidence: { _, _, _ in .supports })
         engine.synchronize(leftContext: "")
         XCTAssertNil(engine.consume("Your "))
         XCTAssertNil(engine.consume("returning "))
@@ -329,7 +349,7 @@ final class FastCorrectionEngineTests: XCTestCase {
 }
 
 final class PersonalizationStoreTests: XCTestCase {
-    func testThreeImmediateRejectionsSuppressPairWithoutStoringContext() {
+    func testRepeatedRejectionsDoNotSuppressWithoutConfirmation() {
         let suiteName = "CappyTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defer { defaults.removePersistentDomain(forName: suiteName) }
@@ -341,7 +361,8 @@ final class PersonalizationStoreTests: XCTestCase {
         store.recordRejected(original: "aggree", replacement: "agree")
         XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
         store.recordRejected(original: "aggree", replacement: "agree")
-        XCTAssertTrue(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        XCTAssertFalse(store.shouldSuppress(original: "aggree", replacement: "agree"))
+        XCTAssertTrue(store.shouldOfferAlwaysKeep(original: "aggree"))
         store.recordAccepted(original: "aggree", replacement: "agree")
         store.recordAccepted(original: "aggree", replacement: "agree")
         store.recordAccepted(original: "aggree", replacement: "agree")

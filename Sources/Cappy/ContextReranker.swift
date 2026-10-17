@@ -103,6 +103,9 @@ final class WordFrequencyModel {
     private let logCounts: [String: Double]
     private let commonShortWords: [String]
     private let neighbourCache = NSCache<NSString, NSArray>()
+    /// Common single words grouped by first letter for `closeWords`. Immutable
+    /// after init, so the spelling queue can read it.
+    private let commonWordsByInitial: [Character: [(word: String, count: Double)]]
 
     init(url: URL?) {
         var counts: [String: Double] = [:]
@@ -117,6 +120,12 @@ final class WordFrequencyModel {
         }
         neighbourCache.countLimit = 512
         logCounts = counts
+        var byInitial: [Character: [(word: String, count: Double)]] = [:]
+        for (word, count) in counts where count >= log(1_000_000.0) && !word.contains(" ") {
+            guard let first = word.first, word.allSatisfy(\.isLetter) else { continue }
+            byInitial[first, default: []].append((word, count))
+        }
+        commonWordsByInitial = byInitial
         commonShortWords = Array(counts.filter { !$0.key.contains(" ") && $0.key.count <= 5 }.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }.prefix(160).map { $0.key })
     }
 
@@ -128,6 +137,23 @@ final class WordFrequencyModel {
         let result = commonShortWords.filter { abs($0.count - word.count) <= 1 && FastCorrectionEngine.editDistance(word, $0) == 1 }
         neighbourCache.setObject(result as NSArray, forKey: word as NSString)
         return result
+    }
+
+    /// Common words near a typo the dictionary cannot guess at, closest and
+    /// most frequent first. The caller must still confirm each is a real word.
+    func closeWords(to word: String) -> [String] {
+        let source = word.lowercased()
+        guard source.count >= 3, source.count <= FastCorrectionEngine.maximumWordLength,
+              let first = source.first, let words = commonWordsByInitial[first] else { return [] }
+        let limit = source.count <= 4 ? 1 : source.count <= 7 ? 2 : 3
+        var matches: [(word: String, distance: Int, count: Double)] = []
+        for entry in words where entry.word != source && abs(entry.word.count - source.count) <= 2 {
+            let distance = FastCorrectionEngine.editDistance(source, entry.word)
+            if distance <= limit { matches.append((entry.word, distance, entry.count)) }
+        }
+        return matches.sorted {
+            $0.distance != $1.distance ? $0.distance < $1.distance : $0.count == $1.count ? $0.word < $1.word : $0.count > $1.count
+        }.prefix(8).map(\.word)
     }
 
     func replacement(history: [String], current: String) -> (original: String, replacement: String)? {

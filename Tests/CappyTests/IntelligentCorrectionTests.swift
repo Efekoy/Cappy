@@ -145,6 +145,56 @@ final class IntelligentCorrectionTests: XCTestCase {
         XCTAssertEqual(document.text, "😀 Ho ware you?")
         XCTAssertEqual(document.selection.location, (document.text as NSString).length)
     }
+    func testLetsApostropheWithExistingLearnedCapitalisation() {
+        let (session, store, _, document) = environment()
+        for _ in 0..<4 { store.recordAccepted(original: "lets", replacement: "Lets") }
+        type("lets go ", session, document)
+        XCTAssertEqual(document.text, "Let's go ")
+        session.invalidateSession(); document.text = ""; document.selection.location = 0
+        type("She lets me go ", session, document)
+        XCTAssertEqual(document.text, "She lets me go ")
+    }
+
+    func testUndoOnlyOffersSuppressionAfterSecondRejectionAndNeedsConfirmation() {
+        let (session, store, words, document) = environment()
+        var prompts = 0
+        session.onPresentation = { presentation, _ in
+            if case .keep = presentation { prompts += 1 }
+            return true
+        }
+        for attempt in 1...3 {
+            session.invalidateSession(); document.text = ""; document.selection.location = 0
+            type("I typed teh ", session, document)
+            XCTAssertEqual(document.text, "I typed the ")
+            XCTAssertTrue(session.didCommand("undo:", client: document))
+            XCTAssertEqual(prompts, max(0, attempt - 1))
+            XCTAssertFalse(words.words.contains("teh"))
+            XCTAssertFalse(store.shouldSuppress(original: "teh", replacement: "the"))
+            if attempt < 3 { session.dismissPresentation() }
+        }
+        XCTAssertTrue(session.alwaysKeep(client: document))
+        session.invalidateSession(); document.text = ""; document.selection.location = 0
+        type("I typed teh ", session, document)
+        XCTAssertEqual(document.text, "I typed teh ")
+    }
+    func testTwoSuggestionDismissalsOfferSuppressionWithoutSavingIt() {
+        let (session, store, words, document) = environment()
+        var prompts = 0
+        session.onPresentation = { presentation, _ in
+            if case .keep = presentation { prompts += 1 }
+            return true
+        }
+        for attempt in 1...2 {
+            session.invalidateSession(); document.text = ""; document.selection.location = 0
+            type("ware you ", session, document)
+            XCTAssertTrue(session.hasSuggestion)
+            XCTAssertTrue(session.didCommand("cancelOperation:", client: document))
+            XCTAssertEqual(prompts, attempt - 1)
+            XCTAssertFalse(store.shouldSuppress(original: "Ware you", replacement: "Are you"))
+            XCTAssertFalse(words.words.contains("ware"))
+        }
+    }
+
     func testAlwaysKeepAfterUndoPersistsAndCanBeRemoved() {
         let (session, _, words, document) = environment()
         type("I typed teh ", session, document)
@@ -184,23 +234,27 @@ final class IntelligentCorrectionTests: XCTestCase {
         type("Ho ware you ", session, document)
         XCTAssertEqual(document.text, "Ho ware you ")
     }
-    func testLearningRequiresEvidenceThenPromotesAndDemotes() {
+    func testLearningPromotesButRejectionsRequireConfirmation() {
         let (_, store, _, _) = environment()
         for _ in 0..<5 { store.record(.suggestionAccepted, original: "ware", replacement: "are") }
         XCTAssertEqual(store.adjustment(original: "ware", replacement: "are"), 0)
         for _ in 0..<7 { store.record(.suggestionAccepted, original: "ware", replacement: "are") }
         XCTAssertEqual(CorrectionConfidence.tier(0.85 + store.adjustment(original: "ware", replacement: "are")), .automatic)
         for _ in 0..<3 { store.record(.automaticUndone, original: "ware", replacement: "are") }
-        XCTAssertLessThan(store.adjustment(original: "ware", replacement: "are"), 0)
+        XCTAssertGreaterThan(store.adjustment(original: "ware", replacement: "are"), 0)
+        XCTAssertFalse(store.shouldSuppress(original: "ware", replacement: "are"))
     }
-    func testRejectionStrongerThanIgnoredAndContextIsolated() {
+    func testRepeatedRejectionOffersConfirmationWithoutImplicitSuppression() {
         let (_, store, _, _) = environment()
         store.record(.suggestionIgnored, original: "a", replacement: "b")
         store.record(.suggestionRejected, original: "c", replacement: "d")
-        XCTAssertGreaterThan(store.adjustment(original: "a", replacement: "b"), store.adjustment(original: "c", replacement: "d"))
+        XCTAssertEqual(store.adjustment(original: "a", replacement: "b"), store.adjustment(original: "c", replacement: "d"))
         let context = PersonalizationStore.contextSignature(["local", "context"])
         XCTAssertFalse(context.contains("local"))
         for _ in 0..<3 { store.record(.suggestionRejected, original: "this", replacement: "that", context: context) }
+        XCTAssertFalse(store.shouldSuppress(original: "this", replacement: "that", context: context))
+        XCTAssertTrue(store.shouldOfferAlwaysKeep(original: "this"))
+        store.suppressPair(original: "this", replacement: "that", context: context)
         XCTAssertTrue(store.shouldSuppress(original: "this", replacement: "that", context: context))
         XCTAssertFalse(store.shouldSuppress(original: "this", replacement: "that", context: "elsewhere"))
     }
@@ -215,7 +269,8 @@ final class IntelligentCorrectionTests: XCTestCase {
         defaults.removeObject(forKey: "personalization.v2")
         defaults.set(["teh\u{1F}the": 3], forKey: "personalization.rejectedPairs")
         let migrated = PersonalizationStore(defaults: defaults)
-        XCTAssertTrue(migrated.shouldSuppress(original: "teh", replacement: "the"))
+        XCTAssertFalse(migrated.shouldSuppress(original: "teh", replacement: "the"))
+        XCTAssertTrue(migrated.shouldOfferAlwaysKeep(original: "teh"))
         migrated.flush(); XCTAssertNil(defaults.object(forKey: "personalization.rejectedPairs"))
     }
     func testVocabularyRequiresRepeatedIntentionalUses() {
@@ -259,8 +314,8 @@ final class IntelligentCorrectionTests: XCTestCase {
         let (otherSession, otherStore, _, otherDocument) = environment()
         otherStore.record(.automaticUndone, original: "teh", replacement: "the", context: PersonalizationStore.contextSignature(["I", "typed"]))
         type("I typed teh ", otherSession, otherDocument)
-        XCTAssertEqual(otherDocument.text, "I typed teh ")
-        XCTAssertTrue(otherSession.hasSuggestion)
+        XCTAssertEqual(otherDocument.text, "I typed the ")
+        XCTAssertFalse(otherSession.hasSuggestion)
     }
     func testOneUnfamiliarNameDoesNotProtectButRepeatedUseIsLearned() {
         let (session, store, words, document) = environment()

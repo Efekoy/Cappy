@@ -122,7 +122,7 @@ final class ChromeTypingTests: XCTestCase {
         let document = ChromeDocument()
         type("i think i can ", through: session(), into: document)
         XCTAssertEqual(document.text, "I think I can ")
-        XCTAssertLessThan(store.adjustment(original: "i", replacement: "I", context: context), 0)
+        XCTAssertEqual(store.adjustment(original: "i", replacement: "I", context: context), 0)
     }
     func testExplicitlyProtectedIStillRemainsUntouched() {
         XCTAssertTrue(words.protect("i"))
@@ -130,11 +130,11 @@ final class ChromeTypingTests: XCTestCase {
         type("i think i can ", through: session(), into: document)
         XCTAssertEqual(document.text, "i think i can ")
     }
-    func testExplicitRejectionStillLowersPronounConfidence() {
+    func testRejectionKeepsPronounAutocorrectionEnabledUntilConfirmed() {
         for _ in 0..<3 { store.record(.automaticUndone, original: "i", replacement: "I") }
         let document = ChromeDocument()
         type("i think i can ", through: session(), into: document)
-        XCTAssertEqual(document.text, "i think i can ")
+        XCTAssertEqual(document.text, "I think I can ")
     }
     func testNativeReturnTabPasteAndPunctuationNeverGetReinserted() {
         let document = ChromeDocument()
@@ -146,13 +146,6 @@ final class ChromeTypingTests: XCTestCase {
         XCTAssertEqual(document.text, "\n\tpasted sentence!")
         XCTAssertEqual(document.reads, 0)
         XCTAssertEqual(document.writes, 0)
-    }
-    func testManualReviewRemainsAvailableWithNativeTyping() {
-        let document = ChromeDocument()
-        let session = session()
-        type("I typed definately", through: session, into: document)
-        XCTAssertTrue(session.correctWrittenText(in: document))
-        XCTAssertEqual(document.text, "I typed definitely")
     }
     private func key(_ text: String, code: UInt16, modifiers: NSEvent.ModifierFlags = []) -> NSEvent {
         NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: modifiers, timestamp: 0,
@@ -202,6 +195,46 @@ final class ChromeTypingTests: XCTestCase {
         XCTAssertTrue(router.handle(key("z", code: 6, modifiers: .command), session: session, client: document))
         XCTAssertEqual(document.text, "i ")
     }
+    func testDedicatedUndoPreservesTextTypedAfterCorrection() {
+        for nativeTyping in [false, true] {
+            let document = ChromeDocument()
+            let session = session()
+            session.usesNativeTyping = nativeTyping
+            var router = CorrectionEventRouter()
+            for character in "I typed teh next🙂" {
+                let text = String(character)
+                if !router.handle(key(text, code: 0), session: session, client: document) {
+                    document.hostTypes(text)
+                }
+            }
+            XCTAssertEqual(document.text, "I typed the next🙂")
+            XCTAssertTrue(router.handle(key("z", code: 6, modifiers: [.control, .option]), session: session, client: document))
+            XCTAssertEqual(document.text, "I typed teh next🙂")
+            XCTAssertEqual(document.caret, (document.text as NSString).length)
+        }
+    }
+    func testDedicatedUndoRejectsMovedCaretOrChangedText() {
+        for moveCaret in [false, true] {
+            let document = ChromeDocument()
+            let session = session()
+            type("I typed teh ", through: session, into: document)
+            if moveCaret { document.caret = 0 }
+            else { document.text = "I typed xyz " }
+            let before = document.text
+            var router = CorrectionEventRouter()
+            XCTAssertFalse(router.handle(key("z", code: 6, modifiers: [.control, .option]), session: session, client: document))
+            XCTAssertEqual(document.text, before)
+        }
+    }
+    func testDedicatedUndoDoesNotCaptureUnrelatedKeysOrEmptySession() {
+        let document = ChromeDocument()
+        let session = session()
+        var router = CorrectionEventRouter()
+        XCTAssertFalse(router.handle(key("z", code: 6, modifiers: [.control, .option]), session: session, client: document))
+        XCTAssertFalse(router.handle(key("z", code: 6, modifiers: [.control, .option, .shift]), session: session, client: document))
+        XCTAssertEqual(document.writes, 0)
+    }
+
     func testDirectShortcutsReturnNavigationAndFunctionKeysAreForwarded() {
         for event in [key("t", code: 17, modifiers: .command), key("a", code: 0, modifiers: .control),
                       key("\r", code: 36), key("\t", code: 48), key("\t", code: 48, modifiers: .shift),
@@ -252,6 +285,28 @@ final class ChromeTypingTests: XCTestCase {
         XCTAssertTrue(session.hasSuggestion)
         XCTAssertTrue(router.handle(key("\t", code: 48), session: session, client: document))
         XCTAssertEqual(document.text, "I used are ")
+    }
+
+    func testDirectTabCorrectionDoesNotAlsoNavigateHostFocus() {
+        for nativeTyping in [false, true] {
+            let document = ChromeDocument()
+            let session = session()
+            session.usesNativeTyping = nativeTyping
+            var router = CorrectionEventRouter()
+            for character in "dont" {
+                let text = String(character)
+                if !router.handle(key(text, code: 0), session: session, client: document) {
+                    document.hostTypes(text)
+                }
+            }
+            var hostFocusMoves = 0
+            if !router.handle(key("\t", code: 48), session: session, client: document) {
+                hostFocusMoves += 1
+            }
+            XCTAssertEqual(document.text, "Don't")
+            XCTAssertEqual(hostFocusMoves, 0)
+            XCTAssertFalse(router.handle(key("\t", code: 48), session: session, client: document))
+        }
     }
 
     func testPronounRuleDoesNotNeedSurroundingContext() {

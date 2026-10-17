@@ -25,7 +25,6 @@ xattr -cr "$installed_app"
 "$installed_app/Contents/MacOS/Cappy" --register-input-source
 
 # These per-user services immediately reload input-method metadata and artwork.
-# The selected input method is launched again automatically on the next key event.
 killall TextInputMenuAgent 2>/dev/null || true
 # The Fn switcher and inline cursor badge have separate artwork caches.
 killall TextInputSwitcher 2>/dev/null || true
@@ -33,5 +32,9 @@ killall CursorUIViewService 2>/dev/null || true
 # Keep the IMK connection broker running. Killing it during an update invalidates
 # connections held by already-running clients; switching input sources alone may
 # not recreate those connections. Only Cappy itself needs to restart.
+
+# macOS does not always relaunch the selected input method after its process
+# exits, which leaves typing uncorrected until the next login. Start it now.
+open "$installed_app"
 
 echo "Installed and refreshed $installed_app"

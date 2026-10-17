@@ -75,24 +75,32 @@ final class PersonalizationStore {
     }
     func recordAccepted(original: String, replacement: String) { record(.automaticAccepted, original: original, replacement: replacement) }
     func recordRejected(original: String, replacement: String) { record(.automaticUndone, original: original, replacement: replacement) }
-    func adjustment(original: String, replacement: String, context: String = "", includeIgnoredSuggestions: Bool = true) -> Double {
+    func adjustment(original: String, replacement: String, context: String = "") -> Double {
         let global = records[pairKey(original, replacement, "")]
         let contextual = context.isEmpty ? nil : records[pairKey(original, replacement, context)]
         return max(-0.6, min(0.20, [global, contextual].compactMap { $0 }.reduce(0) { sum, record in
             let accepted = record.automaticAccepted + record.suggestionsAccepted
             let positive = accepted >= 6 ? min(0.20, Double(accepted - 5) * 0.02) : 0
-            let negative = Double(record.automaticUndone) * 0.09 + Double(record.suggestionsRejected) * 0.065 + (includeIgnoredSuggestions ? Double(record.suggestionsIgnored) * 0.008 : 0)
-            return sum + positive - negative
+            // Rejection is feedback for the confirmation prompt, not implicit suppression.
+            return sum + positive
         }))
     }
     func shouldSuppress(original: String, replacement: String, context: String = "") -> Bool {
         for signature in Set(["", context]) {
             guard let record = records[pairKey(original, replacement, signature)] else { continue }
             if record.explicitlySuppressed == true { return true }
-            let rejects = record.automaticUndone + record.suggestionsRejected
-            if rejects >= 3 && rejects > record.automaticAccepted + record.suggestionsAccepted { return true }
         }
         return false
+    }
+    /// Whether the user has ever undone or rejected a change to `original`.
+    func hasRejected(original: String) -> Bool {
+        records.values.contains {
+            $0.source.lowercased() == original.lowercased() && $0.automaticUndone + $0.suggestionsRejected > 0
+        }
+    }
+    func shouldOfferAlwaysKeep(original: String) -> Bool {
+        records.values.filter { $0.source.lowercased() == original.lowercased() }
+            .reduce(0) { $0 + $1.automaticUndone + $1.suggestionsRejected } >= 2
     }
     func observeIntentional(_ token: String, unfamiliar: Bool = false) {
         guard token.count >= 2, token.count <= 32, token.allSatisfy(\.isLetter),
