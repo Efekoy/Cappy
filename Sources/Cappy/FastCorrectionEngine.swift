@@ -229,9 +229,17 @@ struct FastCorrectionEngine {
         }
         // Look the word up first; the ranker reads only cached guesses.
         let dictionaryReplacement = replacement(for: word, atSentenceStart: atSentenceStart)
+        // A corpus word may be a contraction stored without its apostrophe,
+        // such as “dont”; the dictionary supplies the spelling, “don't”.
+        func spelled(_ ranked: RankedSpelling) -> String {
+            guard ranked.fromCorpus else { return ranked.replacement }
+            return candidateProvider(ranked.replacement).first {
+                $0.contains(where: Self.isApostrophe) && $0.filter { !Self.isApostrophe($0) }.lowercased() == ranked.replacement
+            } ?? ranked.replacement
+        }
         let ranked = Self.hasSimpleCasing(word) ? spellingRanker?(recentWords.last, word, nil) : nil
         if let ranked {
-            add(word, cased(ranked.replacement, like: word, sentenceStart: atSentenceStart), ranked.confidence,
+            add(word, cased(spelled(ranked), like: word, sentenceStart: atSentenceStart), ranked.confidence,
                 "ranked-spelling", "dictionary guesses ranked by corpus frequency, context and typing slips")
         }
         // A short ambiguous typo can be settled by the word typed after it,
@@ -239,7 +247,7 @@ struct FastCorrectionEngine {
         if let previous = recentWords.last, Self.hasSimpleCasing(previous), !rejectionProvider(previous),
            let revisited = spellingRanker?(recentWords.dropLast().last, previous, word),
            revisited.confidence >= CorrectionConfidence.automatic {
-            add(previous + " " + word, cased(revisited.replacement, like: previous, sentenceStart: false) + " " + word,
+            add(previous + " " + word, cased(spelled(revisited), like: previous, sentenceStart: false) + " " + word,
                 revisited.confidence, "ranked-spelling-context", "dictionary guesses ranked with the following word")
         }
         if let replacement = dictionaryReplacement,
@@ -289,9 +297,13 @@ struct FastCorrectionEngine {
             !suppressionProvider($0.source, $0.replacement) && $0.tier != .ignore
         }.sorted {
             // All stages compete by confidence, rather than by execution order.
+            // On a tie the wider span wins: a phrase candidate has already
+            // weighed this word's own fix against its neighbours.
             let lhs = $0.finalConfidence
             let rhs = $1.finalConfidence
-            return lhs == rhs ? $0.source < $1.source : lhs > rhs
+            guard lhs == rhs else { return lhs > rhs }
+            let lhsSpan = $0.source.split(separator: " ").count, rhsSpan = $1.source.split(separator: " ").count
+            return lhsSpan == rhsSpan ? $0.source < $1.source : lhsSpan > rhsSpan
         }.first
     }
 
@@ -454,7 +466,8 @@ struct FastCorrectionEngine {
     private static func highConfidenceMissingSpace(from observed: String, candidate: String) -> String? {
         let parts = candidate.split(separator: " ", omittingEmptySubsequences: true)
         guard parts.count == 2,
-              parts.allSatisfy({ $0.count >= 2 }),
+              // “a” and “I” are the only one-letter words: “alot” → “a lot”.
+              parts.allSatisfy({ $0.count >= 2 || $0.lowercased() == "a" || $0.lowercased() == "i" }),
               candidate.allSatisfy({ isWordLetter($0) || isApostrophe($0) || $0 == " " }) else { return nil }
 
         func normalized(_ value: String) -> String {

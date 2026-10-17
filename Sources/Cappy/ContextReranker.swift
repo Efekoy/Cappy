@@ -103,6 +103,8 @@ final class WordFrequencyModel {
     private let logCounts: [String: Double]
     private let commonShortWords: [String]
     private let neighbourCache = NSCache<NSString, NSArray>()
+    /// `closeWords` scans thousands of words; ranking asks on every word.
+    private let closeWordsCache = NSCache<NSString, NSArray>()
     /// Common single words grouped by first letter for `closeWords`. Immutable
     /// after init, so the spelling queue can read it.
     private let commonWordsByInitial: [Character: [(word: String, count: Double)]]
@@ -119,6 +121,7 @@ final class WordFrequencyModel {
             }
         }
         neighbourCache.countLimit = 512
+        closeWordsCache.countLimit = 512
         logCounts = counts
         var byInitial: [Character: [(word: String, count: Double)]] = [:]
         for (word, count) in counts where count >= log(1_000_000.0) && !word.contains(" ") {
@@ -145,15 +148,18 @@ final class WordFrequencyModel {
         let source = word.lowercased()
         guard source.count >= 3, source.count <= FastCorrectionEngine.maximumWordLength,
               let first = source.first, let words = commonWordsByInitial[first] else { return [] }
+        if let cached = closeWordsCache.object(forKey: source as NSString) as? [String] { return cached }
         let limit = source.count <= 4 ? 1 : source.count <= 7 ? 2 : 3
         var matches: [(word: String, distance: Int, count: Double)] = []
         for entry in words where entry.word != source && abs(entry.word.count - source.count) <= 2 {
             let distance = FastCorrectionEngine.editDistance(source, entry.word)
             if distance <= limit { matches.append((entry.word, distance, entry.count)) }
         }
-        return matches.sorted {
+        let result = Array(matches.sorted {
             $0.distance != $1.distance ? $0.distance < $1.distance : $0.count == $1.count ? $0.word < $1.word : $0.count > $1.count
-        }.prefix(8).map(\.word)
+        }.prefix(8).map(\.word))
+        closeWordsCache.setObject(result as NSArray, forKey: source as NSString)
+        return result
     }
 
     func replacement(history: [String], current: String) -> (original: String, replacement: String)? {

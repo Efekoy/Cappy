@@ -115,7 +115,11 @@ enum HomophoneGuard {
 struct ContextualPhraseRanker {
     let frequencies: WordFrequencyModel
     let provider: (String) -> [String]
-    private struct Beam { var words: [String]; var edits: Int; var score: Double }
+    private struct Beam {
+        var words: [String]; var edits: Int; var score: Double
+        /// Where a stray space was removed, joining that token and the next.
+        var joinedAt: Int? = nil
+    }
 
     func candidates(tokens: [String]) -> [CorrectionCandidate] {
         let original = Array(tokens.suffix(4))
@@ -169,6 +173,16 @@ struct ContextualPhraseRanker {
                 }
             }
         }
+        // Removing a stray space joins two tokens: “is the re” → “is there”.
+        // Only when the pair is far rarer than the joined word, so valid
+        // splits such as “a lot”, “a way” and “may be” are never candidates.
+        for index in 0..<(lower.count - 1) {
+            let joined = lower[index] + lower[index + 1]
+            guard let count = frequencies.count(joined),
+                  count - (frequencies.count(lower[index] + " " + lower[index + 1]) ?? 0) >= log(200.0) else { continue }
+            var words = lower; words[index] = joined; words.remove(at: index + 1)
+            beams.append(Beam(words: words, edits: 1, score: score(words) - 1.6, joinedAt: index))
+        }
         let baseline = score(lower)
         var unique: [String: Beam] = [:]
         for beam in beams where beam.words != lower {
@@ -197,8 +211,12 @@ struct ContextualPhraseRanker {
         guard boundaryMoved || safeChanges else { return [] }
         let automatic = gain >= 7 && margin >= 1.5 && supported >= 2 && (boundaryMoved || safeChanges)
         let confidence = automatic ? 0.985 : min(0.96, 0.78 + gain * 0.012)
-        let replacement = zip(original, best.words).map { source, target in
-            source.first?.isUppercase == true ? target.prefix(1).uppercased() + target.dropFirst() : target
+        var sources = original
+        if let index = best.joinedAt { sources[index] += sources.remove(at: index + 1) }
+        // The pronoun's capital belongs to the pronoun: “I nthe” → “in the”.
+        let replacement = zip(sources, best.words).map { source, target in
+            source.first?.isUppercase == true && (source != "I" || target == "i" || target.hasPrefix("i'"))
+                ? target.prefix(1).uppercased() + target.dropFirst() : target
         }.joined(separator: " ")
         return [CorrectionCandidate(source: original.joined(separator: " "), replacement: replacement,
             type: "phrase", baseConfidence: 0.75, contextualConfidence: confidence - 0.75,
@@ -223,6 +241,9 @@ struct ContextualPhraseRanker {
 struct RankedSpelling: Equatable {
     let replacement: String
     let confidence: Double
+    /// A corpus word rather than a dictionary guess. The corpus stores
+    /// contractions without apostrophes, so “dont” still needs its repair.
+    var fromCorpus = false
 }
 
 /// Chooses among dictionary guesses for a flagged word using corpus frequency,
@@ -240,19 +261,30 @@ struct SpellingRanker {
         guard frequencies.isAvailable, source.count >= 3, source.count <= FastCorrectionEngine.maximumWordLength,
               source.allSatisfy(\.isLetter) else { return nil }
         let guesses = provider(source)
-        guard !guesses.isEmpty else { return nil }
-        // A common word stays: its own corpus evidence outweighs a guess.
+        // The dictionary accepts rare real words such as “bleu” and “suer” and
+        // offers no guesses for them. Such a word is reconsidered only in
+        // lowercase, against corpus words one typing slip away, and only when
+        // the neighbouring words prefer the slip over keeping the word itself.
+        let realWord = guesses.isEmpty
         let sourceCount = frequencies.count(source) ?? 0
+        // Common words such as “there” are never reconsidered.
+        if realWord { guard word == source, source.count >= 4, sourceCount < log(10_000_000.0) else { return nil } }
+        // The dictionary does not always guess the slip itself: “donr” gets
+        // “done” and “door”, but not “dont”.
+        let slips = frequencies.closeWords(to: source).filter { Self.isCommonSlip(source, $0) }.prefix(4)
+        // A common word stays: its own corpus evidence outweighs a guess.
         let maximumDistance = source.count <= 4 ? 1 : source.count <= 7 ? 2 : 3
         var options: [(word: String, distance: Int, count: Double)] = []
-        for guess in guesses.prefix(8) where guess == guess.lowercased() {
+        for guess in Array(guesses.prefix(8)) + slips where guess == guess.lowercased() {
             guard guess != source, guess.allSatisfy(\.isLetter), !options.contains(where: { $0.word == guess }),
-                  let count = frequencies.count(guess), count - sourceCount >= log(50.0) else { continue }
+                  let count = frequencies.count(guess), count - sourceCount >= log(realWord ? 100.0 : 50.0) else { continue }
             let distance = FastCorrectionEngine.editDistance(source, guess)
             guard distance <= maximumDistance else { continue }
             options.append((guess, distance, count))
         }
         guard !options.isEmpty else { return nil }
+        // A real word competes with its corrections.
+        if realWord { options.append((source, 1, sourceCount == 0 ? log(100.0) : sourceCount)) }
 
         let total = (frequencies.count("the") ?? 23) + log(25.0)
         let left = previous?.lowercased(), right = next?.lowercased()
@@ -288,11 +320,14 @@ struct SpellingRanker {
         let margin = ranked.count > 1 ? best.score - ranked[1].score : .infinity
         let hasContext = supported.contains(best.option.word)
         // Short words are too ambiguous for frequency alone, and distant
-        // guesses must be the only plausible word.
-        guard margin >= (hasContext ? 2.3 : 3.0),
-              hasContext || source.count >= 5,
+        // guesses must be the only plausible word. A real word changes only
+        // with context and a wider margin.
+        guard best.option.word != source,
+              margin >= (realWord ? 3.0 : hasContext ? 2.3 : 3.0),
+              hasContext || (source.count >= 5 && !realWord),
               best.option.distance <= 2 || (source.count >= 8 && ranked.count == 1) else { return nil }
-        return RankedSpelling(replacement: best.option.word, confidence: 0.985)
+        return RankedSpelling(replacement: best.option.word, confidence: 0.985,
+                              fromCorpus: !guesses.prefix(8).contains(best.option.word))
     }
 
     /// Typing slips far likelier than an arbitrary edit: a dropped or repeated

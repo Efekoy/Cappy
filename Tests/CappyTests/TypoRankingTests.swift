@@ -110,4 +110,32 @@ final class TypoRankingTests: XCTestCase {
     func testContractionsThatAreAlsoWordsStay() {
         XCTAssertEqual(typed("we were well "), "We were well ")
     }
+
+    func testDictionaryRealWordsThatAreRareSlips() {
+        XCTAssertEqual(typed("still showing the bleu box "), "Still showing the blue box ")
+        XCTAssertEqual(typed("I'm not suer but I think this "), "I'm not sure but I think this ")
+    }
+
+    func testCorpusSlipBecomesContraction() {
+        XCTAssertEqual(typed("but donr know where "), "But don't know where ")
+    }
+
+    func testOneLetterWordSplit() {
+        XCTAssertEqual(typed("tested alot of strategies "), "Tested a lot of strategies ")
+    }
+
+    func testMovedSpaceAfterPronounIsNotCapitalised() {
+        XCTAssertEqual(typed("phrase just like the one I nthe image "), "Phrase just like the one in the image ")
+    }
+
+    func testStraySpaceJoinsOnceTheNextWordConfirms() {
+        XCTAssertEqual(typed("for some reason is the re a way to fix it "), "For some reason is there a way to fix it ")
+        XCTAssertEqual(typed("I think the re are two "), "I think there are two ")
+    }
+
+    func testValidSplitsAndRealWordsStay() {
+        XCTAssertEqual(typed("in a way we can log in to the site "), "In a way we can log in to the site ")
+        XCTAssertEqual(typed("there is a lot of it and maybe it may be fine "), "There is a lot of it and maybe it may be fine ")
+        XCTAssertEqual(typed("the cordon bleu was good "), "The cordon bleu was good ")
+    }
 }

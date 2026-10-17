@@ -493,6 +493,11 @@ final class CorrectionOverlayController: NSObject {
                 correctedWordHighlights.show(client: client, anchor: changed) { [weak self] rect in
                     self?.moveToWord(rect, revision: revision)
                 }
+            } else {
+                // The previous word's box would otherwise linger for up to
+                // 3 s beside this capsule and read as this fix's box.
+                correctedWordHighlights.clear()
+                Self.log.notice("No box: capitalisation or apostrophe fix")
             }
         case .suggestion:
             if let anchor, geometry.rangeRect == nil {
